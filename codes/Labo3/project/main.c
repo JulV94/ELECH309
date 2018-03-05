@@ -1,6 +1,7 @@
 #include "init.h"
 #include "adc.h"
 #include <xc.h>
+#include <string.h> // for memmove()
 
 #define FILTER_STAGE_COUNT 3
 #define FILTER_STAGE_ORDER 2

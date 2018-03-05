@@ -324,24 +324,24 @@ __FUID3
 .comment
  *(.comment)
 
-.debug_info       0x000000       0x14b4
+.debug_info       0x000000       0x1486
  *(.debug_info)
  .debug_info      0x000000        0x560 build/default/production/init.o
- .debug_info      0x000560        0x806 build/default/production/main.o
- .debug_info      0x000d66        0x74e build/default/production/adc.o
+ .debug_info      0x000560        0x7d8 build/default/production/main.o
+ .debug_info      0x000d38        0x74e build/default/production/adc.o
  *(.gnu.linkonce.wi.*)
 
-.debug_abbrev     0x000000        0x327
+.debug_abbrev     0x000000        0x2f8
  *(.debug_abbrev)
  .debug_abbrev    0x000000         0xd6 build/default/production/init.o
- .debug_abbrev    0x0000d6        0x186 build/default/production/main.o
- .debug_abbrev    0x00025c         0xcb build/default/production/adc.o
+ .debug_abbrev    0x0000d6        0x157 build/default/production/main.o
+ .debug_abbrev    0x00022d         0xcb build/default/production/adc.o
 
-.debug_line       0x000000        0x29e
+.debug_line       0x000000        0x290
  *(.debug_line)
  .debug_line      0x000000         0xc4 build/default/production/init.o
- .debug_line      0x0000c4        0x10c build/default/production/main.o
- .debug_line      0x0001d0         0xce build/default/production/adc.o
+ .debug_line      0x0000c4         0xfe build/default/production/main.o
+ .debug_line      0x0001c2         0xce build/default/production/adc.o
 
 .debug_frame      0x000000        0x138
  *(.debug_frame)
