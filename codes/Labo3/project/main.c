@@ -9,6 +9,13 @@
 
 #define DEBUG
 
+#ifdef DEBUG
+    float debugOut[2][10];
+    float debugMeans[2];
+    int debugi;
+    float input;
+#endif /* DEBUG */
+
 typedef struct filterStageData_s {
     float memory[FILTER_STAGE_ORDER];
     float numCoeff[FILTER_STAGE_ORDER + 1];
@@ -20,7 +27,7 @@ void timer3Init()
 {
     PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
     T3CONbits.TCKPS = 0; // Prescaler at 1
-    //T3CONbits.TON = 1; // Activation
+    T3CONbits.TON = 1; // Activation
 }
 
 void UART1Init()
@@ -54,9 +61,9 @@ void passband(float input, float* output, filterStageData_s stages[FILTER_STAGE_
         input = stages[i].gain * acc;
         // Shift the memory
         memmove(&stages[i].memory[1], &stages[i].memory[0], (FILTER_STAGE_ORDER - 1) * sizeof(stages[i].memory[0]));
-        stages[i].memory[FILTER_STAGE_ORDER - 1] = newMemory;
+        stages[i].memory[0] = newMemory;
     }
-    output = &input;
+    *output = input;
 }
 
 int main(void)
@@ -69,19 +76,13 @@ int main(void)
     timer3Init();
     adcTimerInit();
     
-#ifdef DEBUG
-    float debugOut[2][10];
-    float debugMeans[2];
-    int debugi;
-#endif /* DEBUG */
-    
     // Init UART1
     //UART1Init();
     //RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
     //RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
     
     // Init the passband filters [0]:900 / [1]:1100
-    float input;
+    //float input;
     float outputs[FILTER_COUNT];
     filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
         { {{0.0}, {1,0,-1}, {1,-1.7964920647337039,0.98943434670312946}, 0.010365843540149258},
