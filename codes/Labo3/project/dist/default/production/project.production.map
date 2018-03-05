@@ -81,9 +81,9 @@ Program Memory  [Origin = 0x200, Length = 0x15600]
 section                    address   length (PC units)   length (bytes) (dec)
 -------                    -------   -----------------   --------------------
 .text                        0x200               0x340           0x4e0  (1248)
-.text                        0x540               0x37c           0x53a  (1338)
+.text                        0x540               0x41a           0x627  (1575)
 
-                 Total program memory used (bytes):          0xa1a  (2586) 1%
+                 Total program memory used (bytes):          0xb07  (2823) 2%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -128,11 +128,11 @@ External Symbols in Program Memory (by address):
                   0x000552                  _UART1Init
                   0x00056e                  _passband
                   0x0006ba                  _main
-                  0x00082e                  _adcTimerInit
-                  0x00084c                  _adcPollingStart
-                  0x000854                  _adcConversionFinished
-                  0x000862                  _adcRead
-                  0x000878                  _oscillatorInit
+                  0x0008cc                  _adcTimerInit
+                  0x0008ea                  _adcPollingStart
+                  0x0008f2                  _adcConversionFinished
+                  0x000900                  _adcRead
+                  0x000916                  _oscillatorInit
 
 External Symbols in Program Memory (by name):
 
@@ -154,13 +154,13 @@ External Symbols in Program Memory (by name):
                   0x0003dc                  __funpack2
                   0x00023c                  __psv_init
                   0x000200                  __resetPRI
-                  0x000854                  _adcConversionFinished
-                  0x00084c                  _adcPollingStart
-                  0x000862                  _adcRead
-                  0x00082e                  _adcTimerInit
+                  0x0008f2                  _adcConversionFinished
+                  0x0008ea                  _adcPollingStart
+                  0x000900                  _adcRead
+                  0x0008cc                  _adcTimerInit
                   0x0006ba                  _main
                   0x00051c                  _memmove
-                  0x000878                  _oscillatorInit
+                  0x000916                  _oscillatorInit
                   0x00056e                  _passband
                   0x000540                  _timer3Init
 
@@ -324,11 +324,11 @@ __FUID3
 .comment
  *(.comment)
 
-.debug_info       0x000000       0x1486
+.debug_info       0x000000       0x14d8
  *(.debug_info)
  .debug_info      0x000000        0x560 build/default/production/init.o
- .debug_info      0x000560        0x7d8 build/default/production/main.o
- .debug_info      0x000d38        0x74e build/default/production/adc.o
+ .debug_info      0x000560        0x82a build/default/production/main.o
+ .debug_info      0x000d8a        0x74e build/default/production/adc.o
  *(.gnu.linkonce.wi.*)
 
 .debug_abbrev     0x000000        0x2f8
@@ -337,17 +337,17 @@ __FUID3
  .debug_abbrev    0x0000d6        0x157 build/default/production/main.o
  .debug_abbrev    0x00022d         0xcb build/default/production/adc.o
 
-.debug_line       0x000000        0x290
+.debug_line       0x000000        0x29e
  *(.debug_line)
  .debug_line      0x000000         0xc4 build/default/production/init.o
- .debug_line      0x0000c4         0xfe build/default/production/main.o
- .debug_line      0x0001c2         0xce build/default/production/adc.o
+ .debug_line      0x0000c4        0x10c build/default/production/main.o
+ .debug_line      0x0001d0         0xce build/default/production/adc.o
 
-.debug_frame      0x000000        0x138
+.debug_frame      0x000000        0x140
  *(.debug_frame)
  .debug_frame     0x000000         0x30 build/default/production/init.o
- .debug_frame     0x000030         0x84 build/default/production/main.o
- .debug_frame     0x0000b4         0x84 build/default/production/adc.o
+ .debug_frame     0x000030         0x8c build/default/production/main.o
+ .debug_frame     0x0000bc         0x84 build/default/production/adc.o
 
 .debug_str        0x000000         0x8a
  *(.debug_str)
@@ -1397,16 +1397,16 @@ __c30_signature
  __c30_signature
                   0x000254          0x6 /opt/microchip/xc16/v1.33/bin/bin/../../lib/libc-elf.a(memmove.eo)
 
-.text             0x000540        0x37c
- .text            0x000540        0x2ee build/default/production/main.o
+.text             0x000540        0x41a
+ .text            0x000540        0x38c build/default/production/main.o
                   0x000540                  _timer3Init
                   0x000552                  _UART1Init
                   0x00056e                  _passband
                   0x0006ba                  _main
- .text            0x00082e         0x4a build/default/production/adc.o
-                  0x00082e                  _adcTimerInit
-                  0x00084c                  _adcPollingStart
-                  0x000854                  _adcConversionFinished
-                  0x000862                  _adcRead
- .text            0x000878         0x44 build/default/production/init.o
-                  0x000878                  _oscillatorInit
+ .text            0x0008cc         0x4a build/default/production/adc.o
+                  0x0008cc                  _adcTimerInit
+                  0x0008ea                  _adcPollingStart
+                  0x0008f2                  _adcConversionFinished
+                  0x000900                  _adcRead
+ .text            0x000916         0x44 build/default/production/init.o
+                  0x000916                  _oscillatorInit

@@ -7,6 +7,8 @@
 #define FILTER_STAGE_ORDER 2
 #define FILTER_COUNT 2
 
+#define DEBUG
+
 typedef struct filterStageData_s {
     float memory[FILTER_STAGE_ORDER];
     float numCoeff[FILTER_STAGE_ORDER + 1];
@@ -67,6 +69,12 @@ int main(void)
     timer3Init();
     adcTimerInit();
     
+#ifdef DEBUG
+    float debugOut[2][10];
+    float debugMeans[2];
+    int debugi;
+#endif /* DEBUG */
+    
     // Init UART1
     //UART1Init();
     //RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
@@ -95,6 +103,19 @@ int main(void)
             {
                 passband(input, &outputs[i], stages[i]);
             }
+#ifdef DEBUG
+            memmove(&debugOut[0][1], &debugOut[0][0], 9 * sizeof(float));
+            memmove(&debugOut[1][1], &debugOut[0][0], 9 * sizeof(float));
+            debugOut[0][0] = outputs[0];
+            debugOut[1][0] = outputs[1];
+            debugMeans[0] = 0;
+            debugMeans[1] = 0;
+            for (debugi=0;debugi<10; debugi++)
+            {
+                debugMeans[0] += debugOut[0][debugi]*debugOut[0][debugi];
+                debugMeans[1] += debugOut[1][debugi]*debugOut[1][debugi];
+            }
+#endif /* DEBUG */
         }
 	}
 }
