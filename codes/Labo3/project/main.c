@@ -79,16 +79,16 @@ int main(void)
     int i; // Iterator variable
 	oscillatorInit();
     AD1PCFGL = 0xFFFF;
-    
+
     // Init ADC1 on AN0
     timer3Init();
     adcTimerInit();
-    
+
 #ifdef DEBUG2
     TRISAbits.TRISA1 = 0;
 #endif /* DEBUG2 */
-    
-#ifdef DEBUG3    
+
+#ifdef DEBUG3
     // Init UART1
     UART1Init();
     RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
@@ -99,7 +99,7 @@ int main(void)
     int dataOsc[3][1000];
     int iosc;
 #endif /* DEBUG3 */
-    
+
     // Init the passband filters [0]:900 / [1]:1100
     long input;
     long outputs[FILTER_COUNT];
@@ -107,12 +107,12 @@ int main(void)
         { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7964920647337039*M,0.98943434670312946*M}, 0.010365843540149258*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.8119895806833997*M,0.98983485086720957*M}, 0.010365843540149258*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7950820896974879*M,0.9793743827745226*M}, 0.010312808612738712*M} },
-          
+
         { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7015520788691365*M,0.98710428574592357*M}, 0.012660500249294437*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7241964095321776*M,0.98757631173112703*M}, 0.012660500249294437*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.702303529278439*M,0.97483677644146227*M}, 0.012581611779268901*M} }
     };
-	
+
 	while(1) {
 #ifdef DEBUG3
         if (U1STAbits.URXDA)  // A message is in the receiver buffer
