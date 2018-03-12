@@ -15,10 +15,10 @@ def sendBtEvFc():
         data = int(dataStr)                                     # on le traduit
     else:                                                   # sinon
         data = 0                                                # on le choisit nul
-    if command==commandList[0]:                             # Verifie si le parametre est dans 
+    if command==commandList[0]:                             # Verifie si le parametre est dans
         if (data>127) or (data<-128):                       # l'intervalle autorise pour la commande
             data = 0                                        # si non, on le choisit nul
-    if command==commandList[1] or command==commandList[2]:  # Verifie si le parametre est dans 
+    if command==commandList[1] or command==commandList[2]:  # Verifie si le parametre est dans
         if (data>127) or (data<0):                          # l'intervalle autorise pour la commande
             data = 0                                        # si non, on le choisit nul
     if data!=0:                                             # si le parametre n'est pas nul
@@ -30,7 +30,7 @@ def sendBtEvFc():
     else:                                                   # sinon
         dataEn.delete(0, END)                               # on efface le champ d'entree
         dataEn.insert(0,'0')                                # pour y mettre '0'
- 
+
 
 
 def stopBtEvFc():
@@ -38,7 +38,7 @@ def stopBtEvFc():
     f = createFrame(commandList[3],0)                       # on construit la trame de bit
     s = createSignal(f)                                     # puis le signal audio
     playSignal(s)                                           # et on le joue
-    
+
 
 # MAIN PROGRAM
 ###############
@@ -51,7 +51,7 @@ commandSelectCb['values'] = commandList[0:3]                # assigne la liste d
 commandSelectCb.set(commandList[0])                         # definit la commande par defaut
 commandSelectCb['state'] = 'readonly'                       # rend la liste non editable
 commandSelectCb.grid(row=0,column=0)                        # affiche le widget
-# Entree du parametre 
+# Entree du parametre
 dataEn = ttk.Entry(fen)                                     # cree le champ d'entree pour le parametre de la commande
 dataEn.insert(0,'10')                                       # initialise le parametre
 dataEn.grid(row=0,column=1)                                 # affiche le widget

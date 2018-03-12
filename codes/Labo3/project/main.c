@@ -7,20 +7,26 @@
 #define FILTER_STAGE_ORDER 2
 #define FILTER_COUNT 2
 
-#define DEBUG
+// Multiplier for float to long
+#define SHIFT 10
+#define M (long)(1 << SHIFT)
+
+//#define DEBUG
+#define DEBUG2
+#define DEBUG3
+#include <libpic30.h>
 
 #ifdef DEBUG
-    float debugOut[2][10];
-    float debugMeans[2];
-    int debugi;
-    float input;
+    long d_out[2][15];
+    long d_max[2];
+    int d_i;
 #endif /* DEBUG */
 
 typedef struct filterStageData_s {
-    float memory[FILTER_STAGE_ORDER];
-    float numCoeff[FILTER_STAGE_ORDER + 1];
-    float denCoeff[FILTER_STAGE_ORDER + 1];
-    float gain;
+    long memory[FILTER_STAGE_ORDER];
+    long numCoeff[FILTER_STAGE_ORDER + 1];
+    long denCoeff[FILTER_STAGE_ORDER + 1];
+    long gain;
 } filterStageData_s;
 
 void timer3Init()
@@ -41,13 +47,13 @@ void UART1Init()
     U1STAbits.UTXEN = 1;  // activate transmission
 }
 
-void passband(float input, float* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+void passband(long input, long* output, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
     int i,j; // Iterator variables
-    float newMemory, acc; // Accumulator
+    long newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        newMemory = -1 * stages[i].denCoeff[0] * input;
+        newMemory = stages[i].denCoeff[0] * input;
         for (j=0;j<FILTER_STAGE_ORDER; j++)
         {
             newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
@@ -58,7 +64,9 @@ void passband(float input, float* output, filterStageData_s stages[FILTER_STAGE_
             acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
         }
         // Apply output in input of next stage
+        acc = acc/(M*M);
         input = stages[i].gain * acc;
+        input = input/M;
         // Shift the memory
         memmove(&stages[i].memory[1], &stages[i].memory[0], (FILTER_STAGE_ORDER - 1) * sizeof(stages[i].memory[0]));
         stages[i].memory[0] = newMemory;
@@ -76,47 +84,108 @@ int main(void)
     timer3Init();
     adcTimerInit();
     
+#ifdef DEBUG2
+    TRISAbits.TRISA1 = 0;
+#endif /* DEBUG2 */
+    
+#ifdef DEBUG3    
     // Init UART1
-    //UART1Init();
-    //RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
-    //RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+    UART1Init();
+    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+    char rxReg;
+    int osc = 0;
+    int oscCountSuper = 0;
+    int dataOsc[3][1000];
+    int iosc;
+#endif /* DEBUG3 */
     
     // Init the passband filters [0]:900 / [1]:1100
-    //float input;
-    float outputs[FILTER_COUNT];
+    long input;
+    long outputs[FILTER_COUNT];
     filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
-        { {{0.0}, {1,0,-1}, {1,-1.7964920647337039,0.98943434670312946}, 0.010365843540149258},
-          {{0.0}, {1,0,-1}, {1,-1.8119895806833997,0.98983485086720957}, 0.010365843540149258},
-          {{0.0}, {1,0,-1}, {1,-1.7950820896974879,0.9793743827745226}, 0.010312808612738712} },
+        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7964920647337039*M,0.98943434670312946*M}, 0.010365843540149258*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8119895806833997*M,0.98983485086720957*M}, 0.010365843540149258*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7950820896974879*M,0.9793743827745226*M}, 0.010312808612738712*M} },
           
-        { {{0.0}, {1,0,-1}, {1,-1.7015520788691365,0.98710428574592357}, 0.012660500249294437},
-          {{0.0}, {1,0,-1}, {1,-1.7241964095321776,0.98757631173112703}, 0.012660500249294437},
-          {{0.0}, {1,0,-1}, {1,-1.702303529278439,0.97483677644146227}, 0.012581611779268901} }
+        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7015520788691365*M,0.98710428574592357*M}, 0.012660500249294437*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7241964095321776*M,0.98757631173112703*M}, 0.012660500249294437*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.702303529278439*M,0.97483677644146227*M}, 0.012581611779268901*M} }
     };
 	
 	while(1) {
+#ifdef DEBUG3
+        if (U1STAbits.URXDA)  // A message is in the receiver buffer
+        {
+            rxReg = U1RXREG;
+            if (rxReg == 's')
+            {
+                // send the samples to oscilloscope
+                osc = 1;
+            }
+            else
+            {
+                U1TXREG = rxReg; // Echo test
+            }
+        }
+#endif /* DEBUG3 */
         if (adcConversionFinished())
         {
+#ifdef DEBUG2
+            LATAbits.LATA1 = 1;
+#endif /* DEBUG2 */
             // signal needs to be processed
-            input = (float)adcRead();
+            input = (long)adcRead();
             // Send signal to each passband filter
             for (i=0; i<FILTER_COUNT;i++)
             {
                 passband(input, &outputs[i], stages[i]);
             }
-#ifdef DEBUG
-            memmove(&debugOut[0][1], &debugOut[0][0], 9 * sizeof(float));
-            memmove(&debugOut[1][1], &debugOut[0][0], 9 * sizeof(float));
-            debugOut[0][0] = outputs[0];
-            debugOut[1][0] = outputs[1];
-            debugMeans[0] = 0;
-            debugMeans[1] = 0;
-            for (debugi=0;debugi<10; debugi++)
+#ifdef DEBUG3
+            if (osc == 1)
             {
-                debugMeans[0] += debugOut[0][debugi]*debugOut[0][debugi];
-                debugMeans[1] += debugOut[1][debugi]*debugOut[1][debugi];
+                dataOsc[0][oscCountSuper] = input;
+                dataOsc[1][oscCountSuper] = outputs[0];
+                dataOsc[2][oscCountSuper] = outputs[1];
+                oscCountSuper++;
+                if (oscCountSuper >= 1000)
+                {
+                    osc = 2;
+                }
+            }
+            if (osc == 2)
+            {
+                for (iosc=0; iosc<1000; iosc++)
+                {
+                    U1TXREG = dataOsc[0][iosc]/4;
+                    U1TXREG = dataOsc[1][iosc]/4;
+                    U1TXREG = dataOsc[2][iosc]/4;
+                    __delay_ms(10);
+                }
+            }
+#endif /* DEBUG3 */
+#ifdef DEBUG
+            memmove(&d_out[0][1], &d_out[0][0], 14 * sizeof(long));
+            //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(long));
+            d_out[0][0] = outputs[0];
+            //d_out[1][0] = outputs[1];
+            d_max[0] = 0;
+            //d_max[1] = 0;
+            for (d_i=0;d_i<15; d_i++)
+            {
+                if (d_out[0][d_i] > d_max[0])
+                {
+                    d_max[0] = d_out[0][d_i];
+                }
+                /*if (d_out[1][d_i] > d_max[1])
+                {
+                    d_max[1] = d_out[1][d_i];
+                }*/
             }
 #endif /* DEBUG */
+#ifdef DEBUG2
+            LATAbits.LATA1 = 0;
+#endif /* DEBUG2 */
         }
 	}
 }
