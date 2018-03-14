@@ -2,7 +2,7 @@
   "sampleNb":1500,
   "sample_freq":13000,
   "adc_resolution":10,
-  "input_freq":900,
+  "input_freq":931.5,
   "input_amplitude":3.3,
   "integer_filter":{
     "is_active":true,

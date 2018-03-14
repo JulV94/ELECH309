@@ -76,8 +76,6 @@ def main():
     if data["integer_filter"]["is_active"]:
         filters_to_int(data)
 
-    #print(data["filters"][0]["stages"][0])
-
     entry = []
     out = []
     for filt in data["filters"]:
@@ -89,10 +87,7 @@ def main():
         for i in range(len(output)):
             out[i].append(output[i])
 
-    print(data["filters"][0]["stages"][0])
-
     plot(data, entry, out)
-    #print(entry)
 
 if __name__ == "__main__":
     main()
