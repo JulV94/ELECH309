@@ -5,7 +5,7 @@
   "input_freq":900,
   "input_amplitude":3.3,
   "integer_filter":{
-    "is_active":false,
+    "is_active":true,
     "bit_shift":10
   },
   "filters":[

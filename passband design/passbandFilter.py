@@ -19,17 +19,26 @@ def filters_to_int(data):
 
 def passband(inp, data):
     output = []
+    multiplier = 1 << data["integer_filter"]["bit_shift"]
     for filt in data["filters"]:
         newMemory, acc = 0, 0
         myInput = inp
         for stage in filt["stages"]:
             newMemory = stage["denCoeff"][0] * myInput
+            if data["integer_filter"]["is_active"]:
+                newMemory = newMemory * multiplier
             for i in range(len(stage["memory"])):
                 newMemory -= stage["denCoeff"][i+1] * stage["memory"][i]
+            if data["integer_filter"]["is_active"]:
+                newMemory = newMemory//multiplier
             acc = stage["numCoeff"][0] * newMemory
             for i in range(len(stage["memory"])):
                 acc += stage["numCoeff"][i+1] * stage["memory"][i]
+            if data["integer_filter"]["is_active"]:
+                acc = acc//(multiplier * multiplier)
             myInput = stage["gain"] * acc
+            if data["integer_filter"]["is_active"]:
+                myInput = myInput//multiplier
             for i in range(len(stage["memory"])-1, 0, -1):
                 stage["memory"][i] = stage["memory"][i-1]
             stage["memory"][0] = newMemory
@@ -75,10 +84,12 @@ def main():
         out.append([])
 
     for sample in range(data["sampleNb"]):
-        entry.append(((1 << data["adc_resolution"])-1) * (sin(2*pi*data["input_freq"]*sample/data["sample_freq"])+1)/2)
+        entry.append(floor(((1 << data["adc_resolution"])-1) * (sin(2*pi*data["input_freq"]*sample/data["sample_freq"])+1)/2))
         output = passband(entry[-1], data)
         for i in range(len(output)):
             out[i].append(output[i])
+
+    print(data["filters"][0]["stages"][0])
 
     plot(data, entry, out)
     #print(entry)
