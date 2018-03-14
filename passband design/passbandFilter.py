@@ -26,28 +26,35 @@ def passband(inp, data):
         output.append(myInput)
     return output
 
-with open('filters.json') as f:
-    data = json.load(f)
+def plot(data, ref, signals):
+    endTime = data["sampleNb"] * 1/data["sample_freq"]
+    time = numpy.linspace(0, endTime, data["sampleNb"])
+    pyplot.plot(time, ref, label="Input signal")
+    for i in range(len(signals)):
+        pyplot.plot(time, signals[i], label="Filter "+str(i))
+    pyplot.grid()
+    pyplot.legend(loc='upper left')
+    pyplot.xlabel('t (s)')
+    pyplot.ylabel('CH (V)')
+    #pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
+    pyplot.show()
 
-entry = []
-out = []
-for i in range(len(data["filters"])):
-    out.append([])
+def main():
+    with open('filters.json') as f:
+        data = json.load(f)
 
-for sample in range(data["sampleNb"]):
-    entry.append(data["input_amplitude"] * sin(2*pi*data["input_freq"]*sample/data["sample_freq"]))
-    output = passband(entry[-1], data)
-    for i in range(len(output)):
-        out[i].append(output[i])
+    entry = []
+    out = []
+    for i in range(len(data["filters"])):
+        out.append([])
 
-endTime = data["sampleNb"] * 1/data["sample_freq"]
-time = numpy.linspace(0, endTime, data["sampleNb"])
-pyplot.plot(time, entry, label="Input signal")
-for i in range(len(out)):
-    pyplot.plot(time, out[i], label="Filter "+str(i))
-pyplot.grid()
-pyplot.legend(loc='upper left')
-pyplot.xlabel('t (s)')
-pyplot.ylabel('CH (V)')
-#pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
-pyplot.show()
+    for sample in range(data["sampleNb"]):
+        entry.append(data["input_amplitude"] * sin(2*pi*data["input_freq"]*sample/data["sample_freq"]))
+        output = passband(entry[-1], data)
+        for i in range(len(output)):
+            out[i].append(output[i])
+
+    plot(data, entry, out)
+
+if __name__ == "__main__":
+    main()
