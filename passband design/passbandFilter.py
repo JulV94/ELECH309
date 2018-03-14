@@ -5,24 +5,34 @@
 import json
 import numpy
 from matplotlib import pyplot
-from math import pi, sin
+from math import pi, sin, floor
+
+def filters_to_int(data):
+    multiplier = 1 << data["integer_filter"]["bit_shift"]
+    for filt in data["filters"]:
+        for stage in filt["stages"]:
+            for i in range(len(stage["denCoeff"])):
+                stage["denCoeff"][i] = floor(multiplier * stage["denCoeff"][i])
+            for i in range(len(stage["numCoeff"])):
+                stage["numCoeff"][i] = floor(multiplier * stage["numCoeff"][i])
+            stage["gain"] = floor(multiplier * stage["gain"])
 
 def passband(inp, data):
     output = []
-    for k in range(len(data["filters"])):
+    for filt in data["filters"]:
         newMemory, acc = 0, 0
         myInput = inp
-        for i in range(len(data["filters"][k])):
-            newMemory = data["filters"][k]["stages"][i]["denCoeff"][0] * myInput
-            for j in range(len(data["filters"][k]["stages"][i]["memory"])):
-                newMemory -= data["filters"][k]["stages"][i]["denCoeff"][j+1] * data["filters"][k]["stages"][i]["memory"][j]
-            acc = data["filters"][k]["stages"][i]["numCoeff"][0] * newMemory
-            for j in range(len(data["filters"][k]["stages"][i]["memory"])):
-                acc += data["filters"][k]["stages"][i]["numCoeff"][j+1] * data["filters"][k]["stages"][i]["memory"][j]
-            myInput = data["filters"][k]["stages"][i]["gain"] * acc
-            for j in range(len(data["filters"][k]["stages"][i]["memory"])-1, 0, -1):
-                data["filters"][k]["stages"][i]["memory"][j] = data["filters"][k]["stages"][i]["memory"][j-1]
-            data["filters"][k]["stages"][i]["memory"][0] = newMemory
+        for stage in filt["stages"]:
+            newMemory = stage["denCoeff"][0] * myInput
+            for i in range(len(stage["memory"])):
+                newMemory -= stage["denCoeff"][i+1] * stage["memory"][i]
+            acc = stage["numCoeff"][0] * newMemory
+            for i in range(len(stage["memory"])):
+                acc += stage["numCoeff"][i+1] * stage["memory"][i]
+            myInput = stage["gain"] * acc
+            for i in range(len(stage["memory"])-1, 0, -1):
+                stage["memory"][i] = stage["memory"][i-1]
+            stage["memory"][0] = newMemory
         output.append(myInput)
     return output
 
@@ -42,6 +52,11 @@ def plot(data, ref, signals):
 def main():
     with open('filters.json') as f:
         data = json.load(f)
+
+    if data["integer_filter"]["is_active"]:
+        filters_to_int(data)
+
+    print(data["filters"][0]["stages"][0])
 
     entry = []
     out = []

@@ -3,6 +3,10 @@
   "sample_freq":13000,
   "input_freq":931.5,
   "input_amplitude":3.3,
+  "integer_filter":{
+    "is_active":false,
+    "bit_shift":10
+  },
   "filters":[
     {
       "name":"900 Hz passband",
