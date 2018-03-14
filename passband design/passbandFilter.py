@@ -37,11 +37,22 @@ def passband(inp, data):
     return output
 
 def plot(data, ref, signals):
+    scaled_ref=[]
+    scaled_signals=[]
+    for sig in signals:
+        scaled_signals.append([])
+
     endTime = data["sampleNb"] * 1/data["sample_freq"]
     time = numpy.linspace(0, endTime, data["sampleNb"])
-    pyplot.plot(time, ref, label="Input "+str(data["input_freq"])+" Hz")
+    for item in ref:
+        scaled_ref.append(data["input_amplitude"]*((2*item/((1 << data["adc_resolution"])-1))-1))
     for i in range(len(signals)):
-        pyplot.plot(time, signals[i], label=data["filters"][i]["name"])
+        for item in signals[i]:
+            scaled_signals[i].append(data["input_amplitude"]*(2*item/((1 << data["adc_resolution"])-1)))
+
+    pyplot.plot(time, scaled_ref, label="Input "+str(data["input_freq"])+" Hz")
+    for i in range(len(signals)):
+        pyplot.plot(time, scaled_signals[i], label=data["filters"][i]["name"])
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
@@ -56,20 +67,21 @@ def main():
     if data["integer_filter"]["is_active"]:
         filters_to_int(data)
 
-    print(data["filters"][0]["stages"][0])
+    #print(data["filters"][0]["stages"][0])
 
     entry = []
     out = []
-    for i in range(len(data["filters"])):
+    for filt in data["filters"]:
         out.append([])
 
     for sample in range(data["sampleNb"]):
-        entry.append(data["input_amplitude"] * sin(2*pi*data["input_freq"]*sample/data["sample_freq"]))
+        entry.append(((1 << data["adc_resolution"])-1) * (sin(2*pi*data["input_freq"]*sample/data["sample_freq"])+1)/2)
         output = passband(entry[-1], data)
         for i in range(len(output)):
             out[i].append(output[i])
 
     plot(data, entry, out)
+    #print(entry)
 
 if __name__ == "__main__":
     main()
