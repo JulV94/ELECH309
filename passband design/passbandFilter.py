@@ -57,15 +57,16 @@ def plot(data, ref, signals):
         scaled_ref.append(data["input_amplitude"]*((2*item/((1 << data["adc_resolution"])-1))-1))
     for i in range(len(signals)):
         for item in signals[i]:
-            scaled_signals[i].append(data["input_amplitude"]*(2*item/((1 << data["adc_resolution"])-1)))
+            scaled_signals[i].append(data["integer_filter"]["scaling"]*data["input_amplitude"]*(2*item/((1 << data["adc_resolution"])-1)))
 
-    pyplot.plot(time, scaled_ref, label="Input "+str(data["input_freq"])+" Hz")
+    pyplot.plot(time, scaled_ref, label="Input sine "+str(data["input_freq"])+" Hz")
     for i in range(len(signals)):
         pyplot.plot(time, scaled_signals[i], label=data["filters"][i]["name"])
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
     pyplot.ylabel('CH (V)')
+    pyplot.title("IIR digital biquad filter Direct form II")
     #pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
     pyplot.show()
 
