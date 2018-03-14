@@ -13,25 +13,25 @@ def passband(inp, data):
         newMemory, acc = 0, 0
         myInput = inp
         for i in range(len(data["filters"][k])):
-            newMemory = data["filters"][k][i]["denCoeff"][0] * myInput
-            for j in range(len(data["filters"][k][i]["memory"])):
-                newMemory -= data["filters"][k][i]["denCoeff"][j+1] * data["filters"][k][i]["memory"][j]
-            acc = data["filters"][k][i]["numCoeff"][0] * newMemory
-            for j in range(len(data["filters"][k][i]["memory"])):
-                acc += data["filters"][k][i]["numCoeff"][j+1] * data["filters"][k][i]["memory"][j]
-            myInput = data["filters"][k][i]["gain"] * acc
-            for j in range(len(data["filters"][k][i]["memory"])-1, 0, -1):
-                data["filters"][k][i]["memory"][j] = data["filters"][k][i]["memory"][j-1]
-            data["filters"][k][i]["memory"][0] = newMemory
+            newMemory = data["filters"][k]["stages"][i]["denCoeff"][0] * myInput
+            for j in range(len(data["filters"][k]["stages"][i]["memory"])):
+                newMemory -= data["filters"][k]["stages"][i]["denCoeff"][j+1] * data["filters"][k]["stages"][i]["memory"][j]
+            acc = data["filters"][k]["stages"][i]["numCoeff"][0] * newMemory
+            for j in range(len(data["filters"][k]["stages"][i]["memory"])):
+                acc += data["filters"][k]["stages"][i]["numCoeff"][j+1] * data["filters"][k]["stages"][i]["memory"][j]
+            myInput = data["filters"][k]["stages"][i]["gain"] * acc
+            for j in range(len(data["filters"][k]["stages"][i]["memory"])-1, 0, -1):
+                data["filters"][k]["stages"][i]["memory"][j] = data["filters"][k]["stages"][i]["memory"][j-1]
+            data["filters"][k]["stages"][i]["memory"][0] = newMemory
         output.append(myInput)
     return output
 
 def plot(data, ref, signals):
     endTime = data["sampleNb"] * 1/data["sample_freq"]
     time = numpy.linspace(0, endTime, data["sampleNb"])
-    pyplot.plot(time, ref, label="Input signal")
+    pyplot.plot(time, ref, label="Input "+str(data["input_freq"])+" Hz")
     for i in range(len(signals)):
-        pyplot.plot(time, signals[i], label="Filter "+str(i))
+        pyplot.plot(time, signals[i], label=data["filters"][i]["name"])
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
