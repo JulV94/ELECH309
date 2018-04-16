@@ -1,0 +1,3459 @@
+Disassembly Listing for project
+Generated From:
+C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/dist/default/production/project.production.elf
+28-mars-2018 14:15:44
+C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/dist/default/production/project.production.elf
+28-mars-2018 14:15:44
+
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/main.c  ----------------------------------------
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/main.c  ----------------------------------------
+1:                 #include "init.h"
+2:                 #include "adc.h"
+3:                 #include <xc.h>
+4:                 #include <string.h> // for memmove()
+5:                 
+6:                 #define FILTER_STAGE_COUNT 4
+7:                 #define FILTER_STAGE_ORDER 2
+8:                 #define FILTER_COUNT 2
+9:                 
+10:                // Multiplier for float to int32_t
+11:                #define SHIFT 8
+12:                #define M (int32_t)(1 << SHIFT)
+13:                
+14:                #define DEBUG
+15:                #define DEBUG2
+16:                //#define DEBUG3
+17:                #include <libpic30.h>
+18:                
+19:                #ifdef DEBUG
+20:                    int32_t d_out[2][14];
+21:                    int32_t d_max[2];
+22:                    int d_i;
+23:                #endif /* DEBUG */
+24:                
+25:                typedef struct filterStageData_s {
+26:                    int32_t memory[FILTER_STAGE_ORDER];
+27:                    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+28:                    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+29:                    int32_t gain;
+30:                } filterStageData_s;
+31:                
+32:                void timer3Init()
+33:                {
+1:                 #include "init.h"
+2:                 #include "adc.h"
+3:                 #include <xc.h>
+4:                 #include <string.h> // for memmove()
+5:                 
+6:                 #define FILTER_STAGE_COUNT 4
+7:                 #define FILTER_STAGE_ORDER 2
+8:                 #define FILTER_COUNT 2
+9:                 
+10:                // Multiplier for float to int32_t
+11:                #define SHIFT 8
+12:                #define M (int32_t)(1 << SHIFT)
+13:                
+14:                #define DEBUG
+15:                #define DEBUG2
+16:                //#define DEBUG3
+17:                #include <libpic30.h>
+18:                
+19:                #ifdef DEBUG
+20:                    int32_t d_out[2][14];
+21:                    int32_t d_max[2];
+22:                    int d_i;
+23:                #endif /* DEBUG */
+24:                
+25:                typedef struct filterStageData_s {
+26:                    int32_t memory[FILTER_STAGE_ORDER];
+27:                    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+28:                    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+29:                    int32_t gain;
+30:                } filterStageData_s;
+31:                
+32:                void timer3Init()
+33:                {
+0002CE  FA0000     LNK #0x0
+34:                    PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
+0002D0  20C040     MOV #0xC04, W0
+0002D2  880870     MOV W0, PR3
+35:                    T3CONbits.TCKPS = 0; // Prescaler at 1
+0002D4  800891     MOV T3CON, W1
+0002D6  2FFCF0     MOV #0xFFCF, W0
+0002D8  608000     AND W1, W0, W0
+0002DA  880890     MOV W0, T3CON
+36:                    T3CONbits.TON = 1; // Activation
+0002DC  A8E113     BSET 0x113, #7
+37:                }
+0002DE  FA8000     ULNK
+0002E0  060000     RETURN
+38:                
+39:                void UART1Init()
+40:                {
+0002E2  FA0000     LNK #0x0
+41:                    U1BRG = 21;  // baudrate of 115200
+0002E4  200150     MOV #0x15, W0
+0002E6  881140     MOV W0, U1BRG
+42:                    U1MODEbits.PDSEL = 0; // 8 bits no parity
+0002E8  801101     MOV U1MODE, W1
+0002EA  2FFF90     MOV #0xFFF9, W0
+0002EC  608000     AND W1, W0, W0
+0002EE  881100     MOV W0, U1MODE
+43:                    U1MODEbits.STSEL = 0; // 1 stop bit
+0002F0  A90220     BCLR U1MODE, #0
+44:                    U1MODEbits.URXINV = 0; // Idle state is high state
+0002F2  A98220     BCLR U1MODE, #4
+45:                    U1MODEbits.BRGH = 0; // Standard mode (not high baudrate)
+0002F4  A96220     BCLR U1MODE, #3
+46:                    U1MODEbits.UARTEN = 1; // Activate UART
+0002F6  A8E221     BSET 0x221, #7
+47:                    U1STAbits.UTXEN = 1;  // activate transmission
+0002F8  A84223     BSET 0x223, #2
+48:                }
+0002FA  FA8000     ULNK
+0002FC  060000     RETURN
+49:                
+50:                void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+51:                {
+0002FE  FA0014     LNK #0x14
+000300  BE9F88     MOV.D W8, [W15++]
+000302  BE9F8A     MOV.D W10, [W15++]
+000304  BE9F8C     MOV.D W12, [W15++]
+000306  980760     MOV W0, [W14+12]
+000308  980771     MOV W1, [W14+14]
+00030A  980F02     MOV W2, [W14+16]
+00030C  980F13     MOV W3, [W14+18]
+52:                    int i,j; // Iterator variables
+53:                    int32_t newMemory, acc; // Accumulator
+54:                    for (i=0; i<FILTER_STAGE_COUNT; i++)
+00030E  EB0000     CLR W0
+000310  780F00     MOV W0, [W14]
+000312  3700DF     BRA 0x4D2
+0004D0  E80F1E     INC [W14], [W14]
+0004D2  78001E     MOV [W14], W0
+0004D4  500FE3     SUB W0, #0x3, [W15]
+0004D6  34FF1E     BRA LE, 0x314
+55:                    {
+56:                        newMemory = stages[i].denCoeff[0] * input * M;
+000314  78009E     MOV [W14], W1
+000316  200240     MOV #0x24, W0
+000318  B98800     MUL.SS W1, W0, W0
+00031A  780000     MOV W0, W0
+00031C  90089E     MOV [W14+18], W1
+00031E  408000     ADD W1, W0, W0
+000320  9008B0     MOV [W0+22], W1
+000322  900820     MOV [W0+20], W0
+000324  90016E     MOV [W14+12], W2
+000326  B99101     MUL.SS W2, W1, W2
+000328  780102     MOV W2, W2
+00032A  9001FE     MOV [W14+14], W3
+00032C  B99A00     MUL.SS W3, W0, W4
+00032E  780184     MOV W4, W3
+000330  410103     ADD W2, W3, W2
+000332  9001EE     MOV [W14+12], W3
+000334  B81800     MUL.UU W3, W0, W0
+000336  410101     ADD W2, W1, W2
+000338  780082     MOV W2, W1
+00033A  DD0948     SL W1, #8, W2
+00033C  DE01C8     LSR W0, #8, W3
+00033E  710183     IOR W2, W3, W3
+000340  DD0148     SL W0, #8, W2
+000342  980722     MOV W2, [W14+4]
+000344  980733     MOV W3, [W14+6]
+57:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+000346  EB0000     CLR W0
+000348  980710     MOV W0, [W14+2]
+00034A  370027     BRA 0x39A
+000394  90001E     MOV [W14+2], W0
+000396  E80000     INC W0, W0
+000398  980710     MOV W0, [W14+2]
+00039A  90001E     MOV [W14+2], W0
+00039C  500FE1     SUB W0, #0x1, [W15]
+00039E  34FFD6     BRA LE, 0x34C
+58:                        {
+59:                            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
+00034C  78009E     MOV [W14], W1
+00034E  200240     MOV #0x24, W0
+000350  B98800     MUL.SS W1, W0, W0
+000352  780000     MOV W0, W0
+000354  90089E     MOV [W14+18], W1
+000356  408080     ADD W1, W0, W1
+000358  90001E     MOV [W14+2], W0
+00035A  E80000     INC W0, W0
+00035C  400065     ADD W0, #0x5, W0
+00035E  DD0042     SL W0, #2, W0
+000360  408000     ADD W1, W0, W0
+000362  BE0110     MOV.D [W0], W2
+000364  78009E     MOV [W14], W1
+000366  200240     MOV #0x24, W0
+000368  B98800     MUL.SS W1, W0, W0
+00036A  780000     MOV W0, W0
+00036C  90089E     MOV [W14+18], W1
+00036E  408080     ADD W1, W0, W1
+000370  90001E     MOV [W14+2], W0
+000372  DD0042     SL W0, #2, W0
+000374  408000     ADD W1, W0, W0
+000376  BE0010     MOV.D [W0], W0
+000378  B99A00     MUL.SS W3, W0, W4
+00037A  780204     MOV W4, W4
+00037C  B98E02     MUL.SS W1, W2, W12
+00037E  78028C     MOV W12, W5
+000380  420205     ADD W4, W5, W4
+000382  B81000     MUL.UU W2, W0, W0
+000384  420201     ADD W4, W1, W4
+000386  780084     MOV W4, W1
+000388  90012E     MOV [W14+4], W2
+00038A  9001BE     MOV [W14+6], W3
+00038C  510000     SUB W2, W0, W0
+00038E  598081     SUBB W3, W1, W1
+000390  980720     MOV W0, [W14+4]
+000392  980731     MOV W1, [W14+6]
+60:                        }
+61:                        newMemory = newMemory >> SHIFT;
+0003A0  90002E     MOV [W14+4], W0
+0003A2  9000BE     MOV [W14+6], W1
+0003A4  DD0948     SL W1, #8, W2
+0003A6  DE0348     LSR W0, #8, W6
+0003A8  710306     IOR W2, W6, W6
+0003AA  DE8BC8     ASR W1, #8, W7
+0003AC  980726     MOV W6, [W14+4]
+0003AE  980737     MOV W7, [W14+6]
+62:                        acc = stages[i].numCoeff[0] * newMemory;
+0003B0  78009E     MOV [W14], W1
+0003B2  200240     MOV #0x24, W0
+0003B4  B98800     MUL.SS W1, W0, W0
+0003B6  780000     MOV W0, W0
+0003B8  90089E     MOV [W14+18], W1
+0003BA  408000     ADD W1, W0, W0
+0003BC  9000D0     MOV [W0+10], W1
+0003BE  900040     MOV [W0+8], W0
+0003C0  90012E     MOV [W14+4], W2
+0003C2  B99101     MUL.SS W2, W1, W2
+0003C4  780102     MOV W2, W2
+0003C6  9001BE     MOV [W14+6], W3
+0003C8  B99A00     MUL.SS W3, W0, W4
+0003CA  780184     MOV W4, W3
+0003CC  410103     ADD W2, W3, W2
+0003CE  9001AE     MOV [W14+4], W3
+0003D0  B81800     MUL.UU W3, W0, W0
+0003D2  410101     ADD W2, W1, W2
+0003D4  780082     MOV W2, W1
+0003D6  980740     MOV W0, [W14+8]
+0003D8  980751     MOV W1, [W14+10]
+0003DA  980740     MOV W0, [W14+8]
+0003DC  980751     MOV W1, [W14+10]
+63:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+0003DE  EB0000     CLR W0
+0003E0  980710     MOV W0, [W14+2]
+0003E2  370027     BRA 0x432
+00042C  90001E     MOV [W14+2], W0
+00042E  E80000     INC W0, W0
+000430  980710     MOV W0, [W14+2]
+000432  90001E     MOV [W14+2], W0
+000434  500FE1     SUB W0, #0x1, [W15]
+000436  34FFD6     BRA LE, 0x3E4
+64:                        {
+65:                            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
+0003E4  78009E     MOV [W14], W1
+0003E6  200240     MOV #0x24, W0
+0003E8  B98800     MUL.SS W1, W0, W0
+0003EA  780000     MOV W0, W0
+0003EC  90089E     MOV [W14+18], W1
+0003EE  408080     ADD W1, W0, W1
+0003F0  90001E     MOV [W14+2], W0
+0003F2  E80000     INC W0, W0
+0003F4  E88000     INC2 W0, W0
+0003F6  DD0042     SL W0, #2, W0
+0003F8  408000     ADD W1, W0, W0
+0003FA  BE0110     MOV.D [W0], W2
+0003FC  78009E     MOV [W14], W1
+0003FE  200240     MOV #0x24, W0
+000400  B98800     MUL.SS W1, W0, W0
+000402  780000     MOV W0, W0
+000404  90089E     MOV [W14+18], W1
+000406  408080     ADD W1, W0, W1
+000408  90001E     MOV [W14+2], W0
+00040A  DD0042     SL W0, #2, W0
+00040C  408000     ADD W1, W0, W0
+00040E  BE0010     MOV.D [W0], W0
+000410  B99A00     MUL.SS W3, W0, W4
+000412  780204     MOV W4, W4
+000414  B98E02     MUL.SS W1, W2, W12
+000416  78028C     MOV W12, W5
+000418  420205     ADD W4, W5, W4
+00041A  B81000     MUL.UU W2, W0, W0
+00041C  420201     ADD W4, W1, W4
+00041E  780084     MOV W4, W1
+000420  90014E     MOV [W14+8], W2
+000422  9001DE     MOV [W14+10], W3
+000424  400002     ADD W0, W2, W0
+000426  488083     ADDC W1, W3, W1
+000428  980740     MOV W0, [W14+8]
+00042A  980751     MOV W1, [W14+10]
+66:                        }
+67:                        // Apply output in input of next stage
+68:                        acc = acc >> 2*SHIFT;
+000438  90004E     MOV [W14+8], W0
+00043A  9000DE     MOV [W14+10], W1
+00043C  DE8C40     ASR W1, #0, W8
+00043E  DE8CCF     ASR W1, #15, W9
+000440  980748     MOV W8, [W14+8]
+000442  980759     MOV W9, [W14+10]
+69:                        input = stages[i].gain * acc;
+000444  78009E     MOV [W14], W1
+000446  200240     MOV #0x24, W0
+000448  B98800     MUL.SS W1, W0, W0
+00044A  780000     MOV W0, W0
+00044C  90089E     MOV [W14+18], W1
+00044E  408000     ADD W1, W0, W0
+000450  901090     MOV [W0+34], W1
+000452  901000     MOV [W0+32], W0
+000454  90014E     MOV [W14+8], W2
+000456  B99101     MUL.SS W2, W1, W2
+000458  780102     MOV W2, W2
+00045A  9001DE     MOV [W14+10], W3
+00045C  B99A00     MUL.SS W3, W0, W4
+00045E  780184     MOV W4, W3
+000460  410103     ADD W2, W3, W2
+000462  9001CE     MOV [W14+8], W3
+000464  B81800     MUL.UU W3, W0, W0
+000466  410101     ADD W2, W1, W2
+000468  780082     MOV W2, W1
+00046A  980760     MOV W0, [W14+12]
+00046C  980771     MOV W1, [W14+14]
+00046E  980760     MOV W0, [W14+12]
+000470  980771     MOV W1, [W14+14]
+70:                        input = input >> SHIFT;
+000472  90006E     MOV [W14+12], W0
+000474  9000FE     MOV [W14+14], W1
+000476  DD09C8     SL W1, #8, W3
+000478  DE0548     LSR W0, #8, W10
+00047A  71850A     IOR W3, W10, W10
+00047C  DE8DC8     ASR W1, #8, W11
+00047E  98076A     MOV W10, [W14+12]
+000480  98077B     MOV W11, [W14+14]
+71:                        // Shift the memory
+72:                        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
+000482  200010     MOV #0x1, W0
+000484  980710     MOV W0, [W14+2]
+000486  370018     BRA 0x4B8
+0004B2  90001E     MOV [W14+2], W0
+0004B4  E90000     DEC W0, W0
+0004B6  980710     MOV W0, [W14+2]
+0004B8  90001E     MOV [W14+2], W0
+0004BA  E00000     CP0 W0
+0004BC  3CFFE5     BRA GT, 0x488
+73:                        {
+74:                            stages[i].memory[j] = stages[i].memory[j-1];
+000488  78009E     MOV [W14], W1
+00048A  200240     MOV #0x24, W0
+00048C  B98800     MUL.SS W1, W0, W0
+00048E  780000     MOV W0, W0
+000490  90089E     MOV [W14+18], W1
+000492  408180     ADD W1, W0, W3
+000494  78009E     MOV [W14], W1
+000496  200240     MOV #0x24, W0
+000498  B98800     MUL.SS W1, W0, W0
+00049A  780000     MOV W0, W0
+00049C  90089E     MOV [W14+18], W1
+00049E  408080     ADD W1, W0, W1
+0004A0  90001E     MOV [W14+2], W0
+0004A2  E90000     DEC W0, W0
+0004A4  DD0042     SL W0, #2, W0
+0004A6  408000     ADD W1, W0, W0
+0004A8  BE0010     MOV.D [W0], W0
+0004AA  90011E     MOV [W14+2], W2
+0004AC  DD1142     SL W2, #2, W2
+0004AE  418102     ADD W3, W2, W2
+0004B0  BE8900     MOV.D W0, [W2]
+75:                        }
+76:                        stages[i].memory[0] = newMemory;
+0004BE  78009E     MOV [W14], W1
+0004C0  200240     MOV #0x24, W0
+0004C2  B98800     MUL.SS W1, W0, W0
+0004C4  780000     MOV W0, W0
+0004C6  90089E     MOV [W14+18], W1
+0004C8  408000     ADD W1, W0, W0
+0004CA  90012E     MOV [W14+4], W2
+0004CC  9001BE     MOV [W14+6], W3
+0004CE  BE8802     MOV.D W2, [W0]
+77:                    }
+78:                    *output = input;
+0004D8  90080E     MOV [W14+16], W0
+0004DA  90016E     MOV [W14+12], W2
+0004DC  9001FE     MOV [W14+14], W3
+0004DE  BE8802     MOV.D W2, [W0]
+79:                }
+0004E0  BE064F     MOV.D [--W15], W12
+0004E2  BE054F     MOV.D [--W15], W10
+0004E4  BE044F     MOV.D [--W15], W8
+0004E6  FA8000     ULNK
+0004E8  060000     RETURN
+80:                
+81:                int main(void)
+82:                {
+0004EA  FA012E     LNK #0x12E
+83:                    int i; // Iterator variable
+84:                	oscillatorInit();
+0004EC  07011A     RCALL oscillatorInit
+85:                    AD1PCFGL = 0xFFFF;
+0004EE  EB8000     SETM W0
+0004F0  881960     MOV W0, AD1PCFGL
+86:                    
+87:                    // Init ADC1 on AN0
+88:                    timer3Init();
+0004F2  07FEED     RCALL timer3Init
+89:                    adcTimerInit();
+0004F4  0700F1     RCALL adcTimerInit
+90:                    
+91:                #ifdef DEBUG2
+92:                    TRISAbits.TRISA1 = 0;
+0004F6  A922C0     BCLR TRISA, #1
+93:                #endif /* DEBUG2 */
+94:                    
+95:                #ifdef DEBUG3    
+96:                    // Init UART1
+97:                    UART1Init();
+98:                    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+99:                    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+100:                   char rxReg;
+101:                   int osc = 0;
+102:                   int oscCountSuper = 0;
+103:                   int dataOsc[3][1000];
+104:                   int iosc;
+105:               #endif /* DEBUG3 */
+106:                   
+107:                   // Init the passband filters [0]:900 / [1]:1100
+108:                   int32_t input;
+109:                   int32_t outputs[FILTER_COUNT];
+110:                   filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
+0004F8  4700EE     ADD W14, #0xE, W1
+0004FA  09008F     REPEAT #0x8F
+0004FC  EB1880     CLR [W1++]
+0004FE  201000     MOV #0x100, W0
+000500  200001     MOV #0x0, W1
+000502  980F30     MOV W0, [W14+22]
+000504  980F41     MOV W1, [W14+24]
+000506  2FF000     MOV #0xFF00, W0
+000508  2FFFF1     MOV #0xFFFF, W1
+00050A  980F70     MOV W0, [W14+30]
+00050C  981701     MOV W1, [W14+32]
+00050E  201000     MOV #0x100, W0
+000510  200001     MOV #0x0, W1
+000512  981710     MOV W0, [W14+34]
+000514  981721     MOV W1, [W14+36]
+000516  2FE330     MOV #0xFE33, W0
+000518  2FFFF1     MOV #0xFFFF, W1
+00051A  981730     MOV W0, [W14+38]
+00051C  981741     MOV W1, [W14+40]
+00051E  200FE0     MOV #0xFE, W0
+000520  200001     MOV #0x0, W1
+000522  981750     MOV W0, [W14+42]
+000524  981761     MOV W1, [W14+44]
+000526  200020     MOV #0x2, W0
+000528  200001     MOV #0x0, W1
+00052A  981770     MOV W0, [W14+46]
+00052C  981F01     MOV W1, [W14+48]
+00052E  201000     MOV #0x100, W0
+000530  200001     MOV #0x0, W1
+000532  981F50     MOV W0, [W14+58]
+000534  981F61     MOV W1, [W14+60]
+000536  2FF000     MOV #0xFF00, W0
+000538  2FFFF1     MOV #0xFFFF, W1
+00053A  982710     MOV W0, [W14+66]
+00053C  982721     MOV W1, [W14+68]
+00053E  201000     MOV #0x100, W0
+000540  200001     MOV #0x0, W1
+000542  982730     MOV W0, [W14+70]
+000544  982741     MOV W1, [W14+72]
+000546  2FE300     MOV #0xFE30, W0
+000548  2FFFF1     MOV #0xFFFF, W1
+00054A  982750     MOV W0, [W14+74]
+00054C  982761     MOV W1, [W14+76]
+00054E  200FE0     MOV #0xFE, W0
+000550  200001     MOV #0x0, W1
+000552  982770     MOV W0, [W14+78]
+000554  982F01     MOV W1, [W14+80]
+000556  200020     MOV #0x2, W0
+000558  200001     MOV #0x0, W1
+00055A  982F10     MOV W0, [W14+82]
+00055C  982F21     MOV W1, [W14+84]
+00055E  201000     MOV #0x100, W0
+000560  200001     MOV #0x0, W1
+000562  982F70     MOV W0, [W14+94]
+000564  983701     MOV W1, [W14+96]
+000566  2FF000     MOV #0xFF00, W0
+000568  2FFFF1     MOV #0xFFFF, W1
+00056A  983730     MOV W0, [W14+102]
+00056C  983741     MOV W1, [W14+104]
+00056E  201000     MOV #0x100, W0
+000570  200001     MOV #0x0, W1
+000572  983750     MOV W0, [W14+106]
+000574  983761     MOV W1, [W14+108]
+000576  2FE340     MOV #0xFE34, W0
+000578  2FFFF1     MOV #0xFFFF, W1
+00057A  983770     MOV W0, [W14+110]
+00057C  983F01     MOV W1, [W14+112]
+00057E  200FC0     MOV #0xFC, W0
+000580  200001     MOV #0x0, W1
+000582  983F10     MOV W0, [W14+114]
+000584  983F21     MOV W1, [W14+116]
+000586  200020     MOV #0x2, W0
+000588  200001     MOV #0x0, W1
+00058A  983F30     MOV W0, [W14+118]
+00058C  983F41     MOV W1, [W14+120]
+00058E  201000     MOV #0x100, W0
+000590  200001     MOV #0x0, W1
+000592  988710     MOV W0, [W14+130]
+000594  988721     MOV W1, [W14+132]
+000596  2FF000     MOV #0xFF00, W0
+000598  2FFFF1     MOV #0xFFFF, W1
+00059A  988750     MOV W0, [W14+138]
+00059C  988761     MOV W1, [W14+140]
+00059E  201000     MOV #0x100, W0
+0005A0  200001     MOV #0x0, W1
+0005A2  988770     MOV W0, [W14+142]
+0005A4  988F01     MOV W1, [W14+144]
+0005A6  2FE330     MOV #0xFE33, W0
+0005A8  2FFFF1     MOV #0xFFFF, W1
+0005AA  988F10     MOV W0, [W14+146]
+0005AC  988F21     MOV W1, [W14+148]
+0005AE  200FC0     MOV #0xFC, W0
+0005B0  200001     MOV #0x0, W1
+0005B2  988F30     MOV W0, [W14+150]
+0005B4  988F41     MOV W1, [W14+152]
+0005B6  200020     MOV #0x2, W0
+0005B8  200001     MOV #0x0, W1
+0005BA  988F50     MOV W0, [W14+154]
+0005BC  988F61     MOV W1, [W14+156]
+0005BE  201000     MOV #0x100, W0
+0005C0  200001     MOV #0x0, W1
+0005C2  989730     MOV W0, [W14+166]
+0005C4  989741     MOV W1, [W14+168]
+0005C6  2FF000     MOV #0xFF00, W0
+0005C8  2FFFF1     MOV #0xFFFF, W1
+0005CA  989770     MOV W0, [W14+174]
+0005CC  989F01     MOV W1, [W14+176]
+0005CE  201000     MOV #0x100, W0
+0005D0  200001     MOV #0x0, W1
+0005D2  989F10     MOV W0, [W14+178]
+0005D4  989F21     MOV W1, [W14+180]
+0005D6  2FE4B0     MOV #0xFE4B, W0
+0005D8  2FFFF1     MOV #0xFFFF, W1
+0005DA  989F30     MOV W0, [W14+182]
+0005DC  989F41     MOV W1, [W14+184]
+0005DE  200FD0     MOV #0xFD, W0
+0005E0  200001     MOV #0x0, W1
+0005E2  989F50     MOV W0, [W14+186]
+0005E4  989F61     MOV W1, [W14+188]
+0005E6  200020     MOV #0x2, W0
+0005E8  200001     MOV #0x0, W1
+0005EA  989F70     MOV W0, [W14+190]
+0005EC  98A701     MOV W1, [W14+192]
+0005EE  201000     MOV #0x100, W0
+0005F0  200001     MOV #0x0, W1
+0005F2  98A750     MOV W0, [W14+202]
+0005F4  98A761     MOV W1, [W14+204]
+0005F6  2FF000     MOV #0xFF00, W0
+0005F8  2FFFF1     MOV #0xFFFF, W1
+0005FA  98AF10     MOV W0, [W14+210]
+0005FC  98AF21     MOV W1, [W14+212]
+0005FE  201000     MOV #0x100, W0
+000600  200001     MOV #0x0, W1
+000602  98AF30     MOV W0, [W14+214]
+000604  98AF41     MOV W1, [W14+216]
+000606  2FE460     MOV #0xFE46, W0
+000608  2FFFF1     MOV #0xFFFF, W1
+00060A  98AF50     MOV W0, [W14+218]
+00060C  98AF61     MOV W1, [W14+220]
+00060E  200FE0     MOV #0xFE, W0
+000610  200001     MOV #0x0, W1
+000612  98AF70     MOV W0, [W14+222]
+000614  98B701     MOV W1, [W14+224]
+000616  200020     MOV #0x2, W0
+000618  200001     MOV #0x0, W1
+00061A  98B710     MOV W0, [W14+226]
+00061C  98B721     MOV W1, [W14+228]
+00061E  201000     MOV #0x100, W0
+000620  200001     MOV #0x0, W1
+000622  98B770     MOV W0, [W14+238]
+000624  98BF01     MOV W1, [W14+240]
+000626  2FF000     MOV #0xFF00, W0
+000628  2FFFF1     MOV #0xFFFF, W1
+00062A  98BF30     MOV W0, [W14+246]
+00062C  98BF41     MOV W1, [W14+248]
+00062E  201000     MOV #0x100, W0
+000630  200001     MOV #0x0, W1
+000632  98BF50     MOV W0, [W14+250]
+000634  98BF61     MOV W1, [W14+252]
+000636  2FE4C0     MOV #0xFE4C, W0
+000638  2FFFF1     MOV #0xFFFF, W1
+00063A  98BF70     MOV W0, [W14+254]
+00063C  990701     MOV W1, [W14+256]
+00063E  200FB0     MOV #0xFB, W0
+000640  200001     MOV #0x0, W1
+000642  990710     MOV W0, [W14+258]
+000644  990721     MOV W1, [W14+260]
+000646  200020     MOV #0x2, W0
+000648  200001     MOV #0x0, W1
+00064A  990730     MOV W0, [W14+262]
+00064C  990741     MOV W1, [W14+264]
+00064E  201000     MOV #0x100, W0
+000650  200001     MOV #0x0, W1
+000652  990F10     MOV W0, [W14+274]
+000654  990F21     MOV W1, [W14+276]
+000656  2FF000     MOV #0xFF00, W0
+000658  2FFFF1     MOV #0xFFFF, W1
+00065A  990F50     MOV W0, [W14+282]
+00065C  990F61     MOV W1, [W14+284]
+00065E  201000     MOV #0x100, W0
+000660  200001     MOV #0x0, W1
+000662  990F70     MOV W0, [W14+286]
+000664  991701     MOV W1, [W14+288]
+000666  2FE4A0     MOV #0xFE4A, W0
+000668  2FFFF1     MOV #0xFFFF, W1
+00066A  991710     MOV W0, [W14+290]
+00066C  991721     MOV W1, [W14+292]
+00066E  200FB0     MOV #0xFB, W0
+000670  200001     MOV #0x0, W1
+000672  991730     MOV W0, [W14+294]
+000674  991741     MOV W1, [W14+296]
+000676  200020     MOV #0x2, W0
+000678  200001     MOV #0x0, W1
+00067A  991750     MOV W0, [W14+298]
+00067C  991761     MOV W1, [W14+300]
+00067E  370001     BRA 0x682
+111:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8011571239155957*M,0.99343663965814499*M}, 0.0084342754131484891*M},
+112:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.8144890622013676*M,0.99365313679164347*M}, 0.0084342754131484891*M},
+113:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7968934937505234*M,0.98437870027614971*M}, 0.0083961616899833683*M},
+114:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.802504614864014*M,0.98459330636028497*M}, 0.0083961616899833683*M} },
+115:                         
+116:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7072742575792748*M,0.99198489677340751*M}, 0.010305881103809989*M},
+117:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7268035972665099*M,0.9922402806273074*M}, 0.010305881103809989*M},
+118:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7035572899577904*M,0.98093595942427547*M}, 0.01024910202670197*M},
+119:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
+120:                   };
+121:               	
+122:               	while(1) {
+123:               #ifdef DEBUG3
+124:                       if (U1STAbits.URXDA)  // A message is in the receiver buffer
+125:                       {
+126:                           rxReg = U1RXREG;
+127:                           if (rxReg == 's')
+128:                           {
+129:                               // send the samples to oscilloscope
+130:                               osc = 1;
+131:                           }
+132:                           else
+133:                           {
+134:                               U1TXREG = rxReg; // Echo test
+135:                           }
+136:                       }
+137:               #endif /* DEBUG3 */
+138:                       if (adcConversionFinished())
+000682  07003D     RCALL adcConversionFinished
+000684  E00000     CP0 W0
+000686  32FFFC     BRA Z, 0x680
+139:                       {
+140:               #ifdef DEBUG2
+141:                           LATAbits.LATA1 = 1;
+000688  A822C4     BSET LATA, #1
+142:               #endif /* DEBUG2 */
+143:                           // signal needs to be processed
+144:                           input = (int32_t)adcRead();
+00068A  070040     RCALL adcRead
+00068C  DE80CF     ASR W0, #15, W1
+00068E  980710     MOV W0, [W14+2]
+000690  980721     MOV W1, [W14+4]
+145:                           // Send signal to each passband filter
+146:                           for (i=0; i<FILTER_COUNT;i++)
+000692  EB0000     CLR W0
+000694  780F00     MOV W0, [W14]
+000696  370010     BRA 0x6B8
+0006B6  E80F1E     INC [W14], [W14]
+0006B8  78001E     MOV [W14], W0
+0006BA  500FE1     SUB W0, #0x1, [W15]
+0006BC  34FFED     BRA LE, 0x698
+147:                           {
+148:                               passband(input, &outputs[i], stages[i]);
+000698  47016E     ADD W14, #0xE, W2
+00069A  78009E     MOV [W14], W1
+00069C  200900     MOV #0x90, W0
+00069E  B98800     MUL.SS W1, W0, W0
+0006A0  780000     MOV W0, W0
+0006A2  410080     ADD W2, W0, W1
+0006A4  78001E     MOV [W14], W0
+0006A6  DD0042     SL W0, #2, W0
+0006A8  470166     ADD W14, #0x6, W2
+0006AA  410000     ADD W2, W0, W0
+0006AC  780181     MOV W1, W3
+0006AE  780100     MOV W0, W2
+0006B0  90001E     MOV [W14+2], W0
+0006B2  9000AE     MOV [W14+4], W1
+0006B4  07FE24     RCALL passband
+149:                           }
+150:               #ifdef DEBUG3
+151:                           if (osc == 1)
+152:                           {
+153:                               dataOsc[0][oscCountSuper] = input;
+154:                               dataOsc[1][oscCountSuper] = outputs[0];
+155:                               dataOsc[2][oscCountSuper] = outputs[1];
+156:                               oscCountSuper++;
+157:                               if (oscCountSuper >= 1000)
+158:                               {
+159:                                   osc = 2;
+160:                               }
+161:                           }
+162:                           if (osc == 2)
+163:                           {
+164:                               for (iosc=0; iosc<1000; iosc++)
+165:                               {
+166:                                   U1TXREG = dataOsc[0][iosc]/4;
+167:                                   U1TXREG = dataOsc[1][iosc]/4;
+168:                                   U1TXREG = dataOsc[2][iosc]/4;
+169:                                   __delay_ms(10);
+170:                               }
+171:                           }
+172:               #endif /* DEBUG3 */
+173:               #ifdef DEBUG
+174:                           /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
+175:                           //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
+176:                           d_out[0][0] = outputs[0];
+177:                           //d_out[1][0] = outputs[1];
+178:                           d_max[0] = 0;
+179:                           //d_max[1] = 0;
+180:                           for (d_i=0;d_i<14; d_i++)
+181:                           {
+182:                               if (d_out[0][d_i] > d_max[0])
+183:                               {
+184:                                   d_max[0] = d_out[0][d_i];
+185:                               }
+186:                               /*if (d_out[1][d_i] > d_max[1])
+187:                               {
+188:                                   d_max[1] = d_out[1][d_i];
+189:                               }*/
+190:                           //}
+191:                           if (d_max[0] < outputs[0])
+0006BE  208000     MOV #0x800, W0
+0006C0  BE0110     MOV.D [W0], W2
+0006C2  90003E     MOV [W14+6], W0
+0006C4  9000CE     MOV [W14+8], W1
+0006C6  510F80     SUB W2, W0, [W15]
+0006C8  598F81     SUBB W3, W1, [W15]
+0006CA  3D0004     BRA GE, 0x6D4
+192:                           {
+193:                               d_max[0] = outputs[0];
+0006CC  90003E     MOV [W14+6], W0
+0006CE  9000CE     MOV [W14+8], W1
+0006D0  208002     MOV #0x800, W2
+0006D2  BE8900     MOV.D W0, [W2]
+194:                           }
+195:               #endif /* DEBUG */
+196:               #ifdef DEBUG2
+197:                           LATAbits.LATA1 = 0;
+0006D4  A922C4     BCLR LATA, #1
+198:               #endif /* DEBUG2 */
+199:                       }
+200:               	}
+000680  000000     NOP
+0006D6  37FFD5     BRA 0x682
+201:               }
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/init.c  ----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 //  BITS DE CONFIGURATION
+4:                 ///////////////////////////////////////////////////////////////////////////////
+5:                 // disables the JTAG to prevent conflicts with TRISA
+6:                 _FICD(ICS_PGD1 & JTAGEN_OFF);
+7:                 
+8:                 // disables the watchdog
+9:                 _FWDT(FWDTEN_OFF);
+10:                
+11:                // The dsPIC will be clocked by the primary oscillator with a 10MHz crystal.
+12:                // We want to use the PLL to obtain Fosc = 80MHz ( <=> 40MIPS ).
+13:                // Problem : with a 10MHz crystal, PLL constraints are not met with the
+14:                // default parameter.
+15:                // Solution :
+16:                //	- boot using the internal FRC oscillator as clock source,
+17:                //	- set the right PLL parameters to obtain Fosc = 80MHz, without violating
+18:                //	  the PLL constraints,
+19:                //	- switch the clock source to the PLL
+20:                //	- wait for the end of the clock switch
+21:                //
+22:                // Select internal FRC oscillator as clock source
+23:                _FOSCSEL(FNOSC_FRC);
+24:                // enables clock switching and configure the primary oscillator for a 10MHz crystal
+25:                _FOSC(FCKSM_CSECMD & OSCIOFNC_OFF & POSCMD_XT);
+26:                
+27:                
+28:                void oscillatorInit(void) {
+000722  FA0000     LNK #0x0
+29:                    PLLFBD = 30; // M=32
+000724  2001E0     MOV #0x1E, W0
+000726  883A30     MOV W0, PLLFBD
+30:                    CLKDIVbits.PLLPOST = 0; // N1=2
+000728  803A21     MOV CLKDIV, W1
+00072A  2FF3F0     MOV #0xFF3F, W0
+00072C  608000     AND W1, W0, W0
+00072E  883A20     MOV W0, CLKDIV
+31:                    CLKDIVbits.PLLPRE = 0; // N2=2
+000730  803A21     MOV CLKDIV, W1
+000732  2FFE00     MOV #0xFFE0, W0
+000734  608000     AND W1, W0, W0
+000736  883A20     MOV W0, CLKDIV
+32:                    __builtin_write_OSCCONH( 3 );
+000738  200032     MOV #0x3, W2
+00073A  200780     MOV #0x78, W0
+00073C  2009A1     MOV #0x9A, W1
+00073E  207433     MOV #0x743, W3
+000740  784980     MOV.B W0, [W3]
+000742  784981     MOV.B W1, [W3]
+000744  784982     MOV.B W2, [W3]
+33:                    __builtin_write_OSCCONL( 1 );
+000746  200012     MOV #0x1, W2
+000748  200460     MOV #0x46, W0
+00074A  200571     MOV #0x57, W1
+00074C  207423     MOV #0x742, W3
+00074E  784980     MOV.B W0, [W3]
+000750  784981     MOV.B W1, [W3]
+000752  784982     MOV.B W2, [W3]
+34:                    // Wait for Clock switch to occur
+35:                    while (OSCCONbits.COSC != 0b011);
+000754  000000     NOP
+000756  803A11     MOV OSCCON, W1
+000758  270000     MOV #0x7000, W0
+00075A  608080     AND W1, W0, W1
+00075C  230000     MOV #0x3000, W0
+00075E  508F80     SUB W1, W0, [W15]
+000760  3AFFFA     BRA NZ, 0x756
+36:                }
+000762  FA8000     ULNK
+000764  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/adc.c  -----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 
+4:                 void adcTimerInit(void)
+5:                 {
+0006D8  FA0000     LNK #0x0
+6:                     AD1CON1bits.AD12B = 0;  // Convertisseur sur 10 bits
+0006DA  A94321     BCLR 0x321, #2
+7:                     AD1CON3bits.ADCS = 5;   // Clock de l'adc
+0006DC  B3C050     MOV.B #0x5, W0
+0006DE  B7E324     MOV.B WREG, AD1CON3
+8:                     AD1CON1bits.ASAM = 1;   // auto sample activé
+0006E0  A84320     BSET AD1CON1, #2
+9:                     AD1CSSLbits.CSS0 = 1;   // Le convertisseur doit scanner la patte AN0
+0006E2  A80330     BSET AD1CSSL, #0
+10:                    AD1PCFGLbits.PCFG0 = 0; // AN0 en mode analogique
+0006E4  A9032C     BCLR AD1PCFGL, #0
+11:                    AD1CON1bits.SSRC = 2;   // ADC activé par le débordement du Timer3
+0006E6  801901     MOV AD1CON1, W1
+0006E8  2FF1F0     MOV #0xFF1F, W0
+0006EA  608000     AND W1, W0, W0
+0006EC  A06000     BSET W0, #6
+0006EE  881900     MOV W0, AD1CON1
+12:                    AD1CON1bits.ADON = 1;   // l'ADC est actif
+0006F0  A8E321     BSET 0x321, #7
+13:                }
+0006F2  FA8000     ULNK
+0006F4  060000     RETURN
+14:                
+15:                void adcPollingStart(void)
+16:                {
+0006F6  FA0000     LNK #0x0
+17:                    AD1CON1bits.SAMP = 0;
+0006F8  A92320     BCLR AD1CON1, #1
+18:                }
+0006FA  FA8000     ULNK
+0006FC  060000     RETURN
+19:                
+20:                
+21:                int adcConversionFinished(void)
+22:                {
+0006FE  FA0000     LNK #0x0
+23:                    return (AD1CON1bits.DONE);
+000700  801900     MOV AD1CON1, W0
+000702  784000     MOV.B W0, W0
+000704  604061     AND.B W0, #0x1, W0
+000706  FB8000     ZE W0, W0
+24:                }
+000708  FA8000     ULNK
+00070A  060000     RETURN
+25:                
+26:                
+27:                int adcRead(void)
+28:                {
+00070C  FA0000     LNK #0x0
+29:                    if (AD1CON1bits.DONE) {
+00070E  801900     MOV AD1CON1, W0
+000710  600061     AND W0, #0x1, W0
+000712  E00000     CP0 W0
+000714  320003     BRA Z, 0x71C
+30:                        AD1CON1bits.DONE = 0;
+000716  A90320     BCLR AD1CON1, #0
+31:                        return ADC1BUF0;
+000718  801800     MOV ADC1BUF0, W0
+00071A  370001     BRA 0x71E
+32:                    } else {
+33:                        return (-32768);
+00071C  280000     MOV #0x8000, W0
+34:                    }
+35:                }
+00071E  FA8000     ULNK
+000720  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/main.c  ----------------------------------------
+1:                 #include "init.h"
+2:                 #include "adc.h"
+3:                 #include <xc.h>
+4:                 #include <string.h> // for memmove()
+5:                 
+6:                 #define FILTER_STAGE_COUNT 4
+7:                 #define FILTER_STAGE_ORDER 2
+8:                 #define FILTER_COUNT 2
+9:                 
+10:                // Multiplier for float to int32_t
+11:                #define SHIFT 8
+12:                #define M (int32_t)(1 << SHIFT)
+13:                
+14:                #define DEBUG
+15:                #define DEBUG2
+16:                //#define DEBUG3
+17:                #include <libpic30.h>
+18:                
+19:                #ifdef DEBUG
+20:                    int32_t d_out[2][14];
+21:                    int32_t d_max[2];
+22:                    int d_i;
+23:                #endif /* DEBUG */
+24:                
+25:                typedef struct filterStageData_s {
+26:                    int32_t memory[FILTER_STAGE_ORDER];
+27:                    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+28:                    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+29:                    int32_t gain;
+30:                } filterStageData_s;
+31:                
+32:                void timer3Init()
+33:                {
+0002CE  FA0000     LNK #0x0
+34:                    PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
+0002D0  20C040     MOV #0xC04, W0
+0002D2  880870     MOV W0, PR3
+35:                    T3CONbits.TCKPS = 0; // Prescaler at 1
+0002D4  800891     MOV T3CON, W1
+0002D6  2FFCF0     MOV #0xFFCF, W0
+0002D8  608000     AND W1, W0, W0
+0002DA  880890     MOV W0, T3CON
+36:                    T3CONbits.TON = 1; // Activation
+0002DC  A8E113     BSET 0x113, #7
+37:                }
+0002DE  FA8000     ULNK
+0002E0  060000     RETURN
+38:                
+39:                void UART1Init()
+40:                {
+0002E2  FA0000     LNK #0x0
+41:                    U1BRG = 21;  // baudrate of 115200
+0002E4  200150     MOV #0x15, W0
+0002E6  881140     MOV W0, U1BRG
+42:                    U1MODEbits.PDSEL = 0; // 8 bits no parity
+0002E8  801101     MOV U1MODE, W1
+0002EA  2FFF90     MOV #0xFFF9, W0
+0002EC  608000     AND W1, W0, W0
+0002EE  881100     MOV W0, U1MODE
+43:                    U1MODEbits.STSEL = 0; // 1 stop bit
+0002F0  A90220     BCLR U1MODE, #0
+44:                    U1MODEbits.URXINV = 0; // Idle state is high state
+0002F2  A98220     BCLR U1MODE, #4
+45:                    U1MODEbits.BRGH = 0; // Standard mode (not high baudrate)
+0002F4  A96220     BCLR U1MODE, #3
+46:                    U1MODEbits.UARTEN = 1; // Activate UART
+0002F6  A8E221     BSET 0x221, #7
+47:                    U1STAbits.UTXEN = 1;  // activate transmission
+0002F8  A84223     BSET 0x223, #2
+48:                }
+0002FA  FA8000     ULNK
+0002FC  060000     RETURN
+49:                
+50:                void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+51:                {
+0002FE  FA0014     LNK #0x14
+000300  BE9F88     MOV.D W8, [W15++]
+000302  BE9F8A     MOV.D W10, [W15++]
+000304  BE9F8C     MOV.D W12, [W15++]
+000306  980760     MOV W0, [W14+12]
+000308  980771     MOV W1, [W14+14]
+00030A  980F02     MOV W2, [W14+16]
+00030C  980F13     MOV W3, [W14+18]
+52:                    int i,j; // Iterator variables
+53:                    int32_t newMemory, acc; // Accumulator
+54:                    for (i=0; i<FILTER_STAGE_COUNT; i++)
+00030E  EB0000     CLR W0
+000310  780F00     MOV W0, [W14]
+000312  3700DF     BRA 0x4D2
+0004D0  E80F1E     INC [W14], [W14]
+0004D2  78001E     MOV [W14], W0
+0004D4  500FE3     SUB W0, #0x3, [W15]
+0004D6  34FF1E     BRA LE, 0x314
+55:                    {
+56:                        newMemory = stages[i].denCoeff[0] * input * M;
+000314  78009E     MOV [W14], W1
+000316  200240     MOV #0x24, W0
+000318  B98800     MUL.SS W1, W0, W0
+00031A  780000     MOV W0, W0
+00031C  90089E     MOV [W14+18], W1
+00031E  408000     ADD W1, W0, W0
+000320  9008B0     MOV [W0+22], W1
+000322  900820     MOV [W0+20], W0
+000324  90016E     MOV [W14+12], W2
+000326  B99101     MUL.SS W2, W1, W2
+000328  780102     MOV W2, W2
+00032A  9001FE     MOV [W14+14], W3
+00032C  B99A00     MUL.SS W3, W0, W4
+00032E  780184     MOV W4, W3
+000330  410103     ADD W2, W3, W2
+000332  9001EE     MOV [W14+12], W3
+000334  B81800     MUL.UU W3, W0, W0
+000336  410101     ADD W2, W1, W2
+000338  780082     MOV W2, W1
+00033A  DD0948     SL W1, #8, W2
+00033C  DE01C8     LSR W0, #8, W3
+00033E  710183     IOR W2, W3, W3
+000340  DD0148     SL W0, #8, W2
+000342  980722     MOV W2, [W14+4]
+000344  980733     MOV W3, [W14+6]
+57:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+000346  EB0000     CLR W0
+000348  980710     MOV W0, [W14+2]
+00034A  370027     BRA 0x39A
+000394  90001E     MOV [W14+2], W0
+000396  E80000     INC W0, W0
+000398  980710     MOV W0, [W14+2]
+00039A  90001E     MOV [W14+2], W0
+00039C  500FE1     SUB W0, #0x1, [W15]
+00039E  34FFD6     BRA LE, 0x34C
+58:                        {
+59:                            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
+00034C  78009E     MOV [W14], W1
+00034E  200240     MOV #0x24, W0
+000350  B98800     MUL.SS W1, W0, W0
+000352  780000     MOV W0, W0
+000354  90089E     MOV [W14+18], W1
+000356  408080     ADD W1, W0, W1
+000358  90001E     MOV [W14+2], W0
+00035A  E80000     INC W0, W0
+00035C  400065     ADD W0, #0x5, W0
+00035E  DD0042     SL W0, #2, W0
+000360  408000     ADD W1, W0, W0
+000362  BE0110     MOV.D [W0], W2
+000364  78009E     MOV [W14], W1
+000366  200240     MOV #0x24, W0
+000368  B98800     MUL.SS W1, W0, W0
+00036A  780000     MOV W0, W0
+00036C  90089E     MOV [W14+18], W1
+00036E  408080     ADD W1, W0, W1
+000370  90001E     MOV [W14+2], W0
+000372  DD0042     SL W0, #2, W0
+000374  408000     ADD W1, W0, W0
+000376  BE0010     MOV.D [W0], W0
+000378  B99A00     MUL.SS W3, W0, W4
+00037A  780204     MOV W4, W4
+00037C  B98E02     MUL.SS W1, W2, W12
+00037E  78028C     MOV W12, W5
+000380  420205     ADD W4, W5, W4
+000382  B81000     MUL.UU W2, W0, W0
+000384  420201     ADD W4, W1, W4
+000386  780084     MOV W4, W1
+000388  90012E     MOV [W14+4], W2
+00038A  9001BE     MOV [W14+6], W3
+00038C  510000     SUB W2, W0, W0
+00038E  598081     SUBB W3, W1, W1
+000390  980720     MOV W0, [W14+4]
+000392  980731     MOV W1, [W14+6]
+60:                        }
+61:                        newMemory = newMemory >> SHIFT;
+0003A0  90002E     MOV [W14+4], W0
+0003A2  9000BE     MOV [W14+6], W1
+0003A4  DD0948     SL W1, #8, W2
+0003A6  DE0348     LSR W0, #8, W6
+0003A8  710306     IOR W2, W6, W6
+0003AA  DE8BC8     ASR W1, #8, W7
+0003AC  980726     MOV W6, [W14+4]
+0003AE  980737     MOV W7, [W14+6]
+62:                        acc = stages[i].numCoeff[0] * newMemory;
+0003B0  78009E     MOV [W14], W1
+0003B2  200240     MOV #0x24, W0
+0003B4  B98800     MUL.SS W1, W0, W0
+0003B6  780000     MOV W0, W0
+0003B8  90089E     MOV [W14+18], W1
+0003BA  408000     ADD W1, W0, W0
+0003BC  9000D0     MOV [W0+10], W1
+0003BE  900040     MOV [W0+8], W0
+0003C0  90012E     MOV [W14+4], W2
+0003C2  B99101     MUL.SS W2, W1, W2
+0003C4  780102     MOV W2, W2
+0003C6  9001BE     MOV [W14+6], W3
+0003C8  B99A00     MUL.SS W3, W0, W4
+0003CA  780184     MOV W4, W3
+0003CC  410103     ADD W2, W3, W2
+0003CE  9001AE     MOV [W14+4], W3
+0003D0  B81800     MUL.UU W3, W0, W0
+0003D2  410101     ADD W2, W1, W2
+0003D4  780082     MOV W2, W1
+0003D6  980740     MOV W0, [W14+8]
+0003D8  980751     MOV W1, [W14+10]
+0003DA  980740     MOV W0, [W14+8]
+0003DC  980751     MOV W1, [W14+10]
+63:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+0003DE  EB0000     CLR W0
+0003E0  980710     MOV W0, [W14+2]
+0003E2  370027     BRA 0x432
+00042C  90001E     MOV [W14+2], W0
+00042E  E80000     INC W0, W0
+000430  980710     MOV W0, [W14+2]
+000432  90001E     MOV [W14+2], W0
+000434  500FE1     SUB W0, #0x1, [W15]
+000436  34FFD6     BRA LE, 0x3E4
+64:                        {
+65:                            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
+0003E4  78009E     MOV [W14], W1
+0003E6  200240     MOV #0x24, W0
+0003E8  B98800     MUL.SS W1, W0, W0
+0003EA  780000     MOV W0, W0
+0003EC  90089E     MOV [W14+18], W1
+0003EE  408080     ADD W1, W0, W1
+0003F0  90001E     MOV [W14+2], W0
+0003F2  E80000     INC W0, W0
+0003F4  E88000     INC2 W0, W0
+0003F6  DD0042     SL W0, #2, W0
+0003F8  408000     ADD W1, W0, W0
+0003FA  BE0110     MOV.D [W0], W2
+0003FC  78009E     MOV [W14], W1
+0003FE  200240     MOV #0x24, W0
+000400  B98800     MUL.SS W1, W0, W0
+000402  780000     MOV W0, W0
+000404  90089E     MOV [W14+18], W1
+000406  408080     ADD W1, W0, W1
+000408  90001E     MOV [W14+2], W0
+00040A  DD0042     SL W0, #2, W0
+00040C  408000     ADD W1, W0, W0
+00040E  BE0010     MOV.D [W0], W0
+000410  B99A00     MUL.SS W3, W0, W4
+000412  780204     MOV W4, W4
+000414  B98E02     MUL.SS W1, W2, W12
+000416  78028C     MOV W12, W5
+000418  420205     ADD W4, W5, W4
+00041A  B81000     MUL.UU W2, W0, W0
+00041C  420201     ADD W4, W1, W4
+00041E  780084     MOV W4, W1
+000420  90014E     MOV [W14+8], W2
+000422  9001DE     MOV [W14+10], W3
+000424  400002     ADD W0, W2, W0
+000426  488083     ADDC W1, W3, W1
+000428  980740     MOV W0, [W14+8]
+00042A  980751     MOV W1, [W14+10]
+66:                        }
+67:                        // Apply output in input of next stage
+68:                        acc = acc >> 2*SHIFT;
+000438  90004E     MOV [W14+8], W0
+00043A  9000DE     MOV [W14+10], W1
+00043C  DE8C40     ASR W1, #0, W8
+00043E  DE8CCF     ASR W1, #15, W9
+000440  980748     MOV W8, [W14+8]
+000442  980759     MOV W9, [W14+10]
+69:                        input = stages[i].gain * acc;
+000444  78009E     MOV [W14], W1
+000446  200240     MOV #0x24, W0
+000448  B98800     MUL.SS W1, W0, W0
+00044A  780000     MOV W0, W0
+00044C  90089E     MOV [W14+18], W1
+00044E  408000     ADD W1, W0, W0
+000450  901090     MOV [W0+34], W1
+000452  901000     MOV [W0+32], W0
+000454  90014E     MOV [W14+8], W2
+000456  B99101     MUL.SS W2, W1, W2
+000458  780102     MOV W2, W2
+00045A  9001DE     MOV [W14+10], W3
+00045C  B99A00     MUL.SS W3, W0, W4
+00045E  780184     MOV W4, W3
+000460  410103     ADD W2, W3, W2
+000462  9001CE     MOV [W14+8], W3
+000464  B81800     MUL.UU W3, W0, W0
+000466  410101     ADD W2, W1, W2
+000468  780082     MOV W2, W1
+00046A  980760     MOV W0, [W14+12]
+00046C  980771     MOV W1, [W14+14]
+00046E  980760     MOV W0, [W14+12]
+000470  980771     MOV W1, [W14+14]
+70:                        input = input >> SHIFT;
+000472  90006E     MOV [W14+12], W0
+000474  9000FE     MOV [W14+14], W1
+000476  DD09C8     SL W1, #8, W3
+000478  DE0548     LSR W0, #8, W10
+00047A  71850A     IOR W3, W10, W10
+00047C  DE8DC8     ASR W1, #8, W11
+00047E  98076A     MOV W10, [W14+12]
+000480  98077B     MOV W11, [W14+14]
+71:                        // Shift the memory
+72:                        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
+000482  200010     MOV #0x1, W0
+000484  980710     MOV W0, [W14+2]
+000486  370018     BRA 0x4B8
+0004B2  90001E     MOV [W14+2], W0
+0004B4  E90000     DEC W0, W0
+0004B6  980710     MOV W0, [W14+2]
+0004B8  90001E     MOV [W14+2], W0
+0004BA  E00000     CP0 W0
+0004BC  3CFFE5     BRA GT, 0x488
+73:                        {
+74:                            stages[i].memory[j] = stages[i].memory[j-1];
+000488  78009E     MOV [W14], W1
+00048A  200240     MOV #0x24, W0
+00048C  B98800     MUL.SS W1, W0, W0
+00048E  780000     MOV W0, W0
+000490  90089E     MOV [W14+18], W1
+000492  408180     ADD W1, W0, W3
+000494  78009E     MOV [W14], W1
+000496  200240     MOV #0x24, W0
+000498  B98800     MUL.SS W1, W0, W0
+00049A  780000     MOV W0, W0
+00049C  90089E     MOV [W14+18], W1
+00049E  408080     ADD W1, W0, W1
+0004A0  90001E     MOV [W14+2], W0
+0004A2  E90000     DEC W0, W0
+0004A4  DD0042     SL W0, #2, W0
+0004A6  408000     ADD W1, W0, W0
+0004A8  BE0010     MOV.D [W0], W0
+0004AA  90011E     MOV [W14+2], W2
+0004AC  DD1142     SL W2, #2, W2
+0004AE  418102     ADD W3, W2, W2
+0004B0  BE8900     MOV.D W0, [W2]
+75:                        }
+76:                        stages[i].memory[0] = newMemory;
+0004BE  78009E     MOV [W14], W1
+0004C0  200240     MOV #0x24, W0
+0004C2  B98800     MUL.SS W1, W0, W0
+0004C4  780000     MOV W0, W0
+0004C6  90089E     MOV [W14+18], W1
+0004C8  408000     ADD W1, W0, W0
+0004CA  90012E     MOV [W14+4], W2
+0004CC  9001BE     MOV [W14+6], W3
+0004CE  BE8802     MOV.D W2, [W0]
+77:                    }
+78:                    *output = input;
+0004D8  90080E     MOV [W14+16], W0
+0004DA  90016E     MOV [W14+12], W2
+0004DC  9001FE     MOV [W14+14], W3
+0004DE  BE8802     MOV.D W2, [W0]
+79:                }
+0004E0  BE064F     MOV.D [--W15], W12
+0004E2  BE054F     MOV.D [--W15], W10
+0004E4  BE044F     MOV.D [--W15], W8
+0004E6  FA8000     ULNK
+0004E8  060000     RETURN
+80:                
+81:                int main(void)
+82:                {
+0004EA  FA012E     LNK #0x12E
+83:                    int i; // Iterator variable
+84:                	oscillatorInit();
+0004EC  07011A     RCALL oscillatorInit
+85:                    AD1PCFGL = 0xFFFF;
+0004EE  EB8000     SETM W0
+0004F0  881960     MOV W0, AD1PCFGL
+86:                    
+87:                    // Init ADC1 on AN0
+88:                    timer3Init();
+0004F2  07FEED     RCALL timer3Init
+89:                    adcTimerInit();
+0004F4  0700F1     RCALL adcTimerInit
+90:                    
+91:                #ifdef DEBUG2
+92:                    TRISAbits.TRISA1 = 0;
+0004F6  A922C0     BCLR TRISA, #1
+93:                #endif /* DEBUG2 */
+94:                    
+95:                #ifdef DEBUG3    
+96:                    // Init UART1
+97:                    UART1Init();
+98:                    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+99:                    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+100:                   char rxReg;
+101:                   int osc = 0;
+102:                   int oscCountSuper = 0;
+103:                   int dataOsc[3][1000];
+104:                   int iosc;
+105:               #endif /* DEBUG3 */
+106:                   
+107:                   // Init the passband filters [0]:900 / [1]:1100
+108:                   int32_t input;
+109:                   int32_t outputs[FILTER_COUNT];
+110:                   filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
+0004F8  4700EE     ADD W14, #0xE, W1
+0004FA  09008F     REPEAT #0x8F
+0004FC  EB1880     CLR [W1++]
+0004FE  201000     MOV #0x100, W0
+000500  200001     MOV #0x0, W1
+000502  980F30     MOV W0, [W14+22]
+000504  980F41     MOV W1, [W14+24]
+000506  2FF000     MOV #0xFF00, W0
+000508  2FFFF1     MOV #0xFFFF, W1
+00050A  980F70     MOV W0, [W14+30]
+00050C  981701     MOV W1, [W14+32]
+00050E  201000     MOV #0x100, W0
+000510  200001     MOV #0x0, W1
+000512  981710     MOV W0, [W14+34]
+000514  981721     MOV W1, [W14+36]
+000516  2FE330     MOV #0xFE33, W0
+000518  2FFFF1     MOV #0xFFFF, W1
+00051A  981730     MOV W0, [W14+38]
+00051C  981741     MOV W1, [W14+40]
+00051E  200FE0     MOV #0xFE, W0
+000520  200001     MOV #0x0, W1
+000522  981750     MOV W0, [W14+42]
+000524  981761     MOV W1, [W14+44]
+000526  200020     MOV #0x2, W0
+000528  200001     MOV #0x0, W1
+00052A  981770     MOV W0, [W14+46]
+00052C  981F01     MOV W1, [W14+48]
+00052E  201000     MOV #0x100, W0
+000530  200001     MOV #0x0, W1
+000532  981F50     MOV W0, [W14+58]
+000534  981F61     MOV W1, [W14+60]
+000536  2FF000     MOV #0xFF00, W0
+000538  2FFFF1     MOV #0xFFFF, W1
+00053A  982710     MOV W0, [W14+66]
+00053C  982721     MOV W1, [W14+68]
+00053E  201000     MOV #0x100, W0
+000540  200001     MOV #0x0, W1
+000542  982730     MOV W0, [W14+70]
+000544  982741     MOV W1, [W14+72]
+000546  2FE300     MOV #0xFE30, W0
+000548  2FFFF1     MOV #0xFFFF, W1
+00054A  982750     MOV W0, [W14+74]
+00054C  982761     MOV W1, [W14+76]
+00054E  200FE0     MOV #0xFE, W0
+000550  200001     MOV #0x0, W1
+000552  982770     MOV W0, [W14+78]
+000554  982F01     MOV W1, [W14+80]
+000556  200020     MOV #0x2, W0
+000558  200001     MOV #0x0, W1
+00055A  982F10     MOV W0, [W14+82]
+00055C  982F21     MOV W1, [W14+84]
+00055E  201000     MOV #0x100, W0
+000560  200001     MOV #0x0, W1
+000562  982F70     MOV W0, [W14+94]
+000564  983701     MOV W1, [W14+96]
+000566  2FF000     MOV #0xFF00, W0
+000568  2FFFF1     MOV #0xFFFF, W1
+00056A  983730     MOV W0, [W14+102]
+00056C  983741     MOV W1, [W14+104]
+00056E  201000     MOV #0x100, W0
+000570  200001     MOV #0x0, W1
+000572  983750     MOV W0, [W14+106]
+000574  983761     MOV W1, [W14+108]
+000576  2FE340     MOV #0xFE34, W0
+000578  2FFFF1     MOV #0xFFFF, W1
+00057A  983770     MOV W0, [W14+110]
+00057C  983F01     MOV W1, [W14+112]
+00057E  200FC0     MOV #0xFC, W0
+000580  200001     MOV #0x0, W1
+000582  983F10     MOV W0, [W14+114]
+000584  983F21     MOV W1, [W14+116]
+000586  200020     MOV #0x2, W0
+000588  200001     MOV #0x0, W1
+00058A  983F30     MOV W0, [W14+118]
+00058C  983F41     MOV W1, [W14+120]
+00058E  201000     MOV #0x100, W0
+000590  200001     MOV #0x0, W1
+000592  988710     MOV W0, [W14+130]
+000594  988721     MOV W1, [W14+132]
+000596  2FF000     MOV #0xFF00, W0
+000598  2FFFF1     MOV #0xFFFF, W1
+00059A  988750     MOV W0, [W14+138]
+00059C  988761     MOV W1, [W14+140]
+00059E  201000     MOV #0x100, W0
+0005A0  200001     MOV #0x0, W1
+0005A2  988770     MOV W0, [W14+142]
+0005A4  988F01     MOV W1, [W14+144]
+0005A6  2FE330     MOV #0xFE33, W0
+0005A8  2FFFF1     MOV #0xFFFF, W1
+0005AA  988F10     MOV W0, [W14+146]
+0005AC  988F21     MOV W1, [W14+148]
+0005AE  200FC0     MOV #0xFC, W0
+0005B0  200001     MOV #0x0, W1
+0005B2  988F30     MOV W0, [W14+150]
+0005B4  988F41     MOV W1, [W14+152]
+0005B6  200020     MOV #0x2, W0
+0005B8  200001     MOV #0x0, W1
+0005BA  988F50     MOV W0, [W14+154]
+0005BC  988F61     MOV W1, [W14+156]
+0005BE  201000     MOV #0x100, W0
+0005C0  200001     MOV #0x0, W1
+0005C2  989730     MOV W0, [W14+166]
+0005C4  989741     MOV W1, [W14+168]
+0005C6  2FF000     MOV #0xFF00, W0
+0005C8  2FFFF1     MOV #0xFFFF, W1
+0005CA  989770     MOV W0, [W14+174]
+0005CC  989F01     MOV W1, [W14+176]
+0005CE  201000     MOV #0x100, W0
+0005D0  200001     MOV #0x0, W1
+0005D2  989F10     MOV W0, [W14+178]
+0005D4  989F21     MOV W1, [W14+180]
+0005D6  2FE4B0     MOV #0xFE4B, W0
+0005D8  2FFFF1     MOV #0xFFFF, W1
+0005DA  989F30     MOV W0, [W14+182]
+0005DC  989F41     MOV W1, [W14+184]
+0005DE  200FD0     MOV #0xFD, W0
+0005E0  200001     MOV #0x0, W1
+0005E2  989F50     MOV W0, [W14+186]
+0005E4  989F61     MOV W1, [W14+188]
+0005E6  200020     MOV #0x2, W0
+0005E8  200001     MOV #0x0, W1
+0005EA  989F70     MOV W0, [W14+190]
+0005EC  98A701     MOV W1, [W14+192]
+0005EE  201000     MOV #0x100, W0
+0005F0  200001     MOV #0x0, W1
+0005F2  98A750     MOV W0, [W14+202]
+0005F4  98A761     MOV W1, [W14+204]
+0005F6  2FF000     MOV #0xFF00, W0
+0005F8  2FFFF1     MOV #0xFFFF, W1
+0005FA  98AF10     MOV W0, [W14+210]
+0005FC  98AF21     MOV W1, [W14+212]
+0005FE  201000     MOV #0x100, W0
+000600  200001     MOV #0x0, W1
+000602  98AF30     MOV W0, [W14+214]
+000604  98AF41     MOV W1, [W14+216]
+000606  2FE460     MOV #0xFE46, W0
+000608  2FFFF1     MOV #0xFFFF, W1
+00060A  98AF50     MOV W0, [W14+218]
+00060C  98AF61     MOV W1, [W14+220]
+00060E  200FE0     MOV #0xFE, W0
+000610  200001     MOV #0x0, W1
+000612  98AF70     MOV W0, [W14+222]
+000614  98B701     MOV W1, [W14+224]
+000616  200020     MOV #0x2, W0
+000618  200001     MOV #0x0, W1
+00061A  98B710     MOV W0, [W14+226]
+00061C  98B721     MOV W1, [W14+228]
+00061E  201000     MOV #0x100, W0
+000620  200001     MOV #0x0, W1
+000622  98B770     MOV W0, [W14+238]
+000624  98BF01     MOV W1, [W14+240]
+000626  2FF000     MOV #0xFF00, W0
+000628  2FFFF1     MOV #0xFFFF, W1
+00062A  98BF30     MOV W0, [W14+246]
+00062C  98BF41     MOV W1, [W14+248]
+00062E  201000     MOV #0x100, W0
+000630  200001     MOV #0x0, W1
+000632  98BF50     MOV W0, [W14+250]
+000634  98BF61     MOV W1, [W14+252]
+000636  2FE4C0     MOV #0xFE4C, W0
+000638  2FFFF1     MOV #0xFFFF, W1
+00063A  98BF70     MOV W0, [W14+254]
+00063C  990701     MOV W1, [W14+256]
+00063E  200FB0     MOV #0xFB, W0
+000640  200001     MOV #0x0, W1
+000642  990710     MOV W0, [W14+258]
+000644  990721     MOV W1, [W14+260]
+000646  200020     MOV #0x2, W0
+000648  200001     MOV #0x0, W1
+00064A  990730     MOV W0, [W14+262]
+00064C  990741     MOV W1, [W14+264]
+00064E  201000     MOV #0x100, W0
+000650  200001     MOV #0x0, W1
+000652  990F10     MOV W0, [W14+274]
+000654  990F21     MOV W1, [W14+276]
+000656  2FF000     MOV #0xFF00, W0
+000658  2FFFF1     MOV #0xFFFF, W1
+00065A  990F50     MOV W0, [W14+282]
+00065C  990F61     MOV W1, [W14+284]
+00065E  201000     MOV #0x100, W0
+000660  200001     MOV #0x0, W1
+000662  990F70     MOV W0, [W14+286]
+000664  991701     MOV W1, [W14+288]
+000666  2FE4A0     MOV #0xFE4A, W0
+000668  2FFFF1     MOV #0xFFFF, W1
+00066A  991710     MOV W0, [W14+290]
+00066C  991721     MOV W1, [W14+292]
+00066E  200FB0     MOV #0xFB, W0
+000670  200001     MOV #0x0, W1
+000672  991730     MOV W0, [W14+294]
+000674  991741     MOV W1, [W14+296]
+000676  200020     MOV #0x2, W0
+000678  200001     MOV #0x0, W1
+00067A  991750     MOV W0, [W14+298]
+00067C  991761     MOV W1, [W14+300]
+00067E  370001     BRA 0x682
+111:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8011571239155957*M,0.99343663965814499*M}, 0.0084342754131484891*M},
+112:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.8144890622013676*M,0.99365313679164347*M}, 0.0084342754131484891*M},
+113:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7968934937505234*M,0.98437870027614971*M}, 0.0083961616899833683*M},
+114:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.802504614864014*M,0.98459330636028497*M}, 0.0083961616899833683*M} },
+115:                         
+116:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7072742575792748*M,0.99198489677340751*M}, 0.010305881103809989*M},
+117:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7268035972665099*M,0.9922402806273074*M}, 0.010305881103809989*M},
+118:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7035572899577904*M,0.98093595942427547*M}, 0.01024910202670197*M},
+119:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
+120:                   };
+121:               	
+122:               	while(1) {
+123:               #ifdef DEBUG3
+124:                       if (U1STAbits.URXDA)  // A message is in the receiver buffer
+125:                       {
+126:                           rxReg = U1RXREG;
+127:                           if (rxReg == 's')
+128:                           {
+129:                               // send the samples to oscilloscope
+130:                               osc = 1;
+131:                           }
+132:                           else
+133:                           {
+134:                               U1TXREG = rxReg; // Echo test
+135:                           }
+136:                       }
+137:               #endif /* DEBUG3 */
+138:                       if (adcConversionFinished())
+000682  07003D     RCALL adcConversionFinished
+000684  E00000     CP0 W0
+000686  32FFFC     BRA Z, 0x680
+139:                       {
+140:               #ifdef DEBUG2
+141:                           LATAbits.LATA1 = 1;
+000688  A822C4     BSET LATA, #1
+142:               #endif /* DEBUG2 */
+143:                           // signal needs to be processed
+144:                           input = (int32_t)adcRead();
+00068A  070040     RCALL adcRead
+00068C  DE80CF     ASR W0, #15, W1
+00068E  980710     MOV W0, [W14+2]
+000690  980721     MOV W1, [W14+4]
+145:                           // Send signal to each passband filter
+146:                           for (i=0; i<FILTER_COUNT;i++)
+000692  EB0000     CLR W0
+000694  780F00     MOV W0, [W14]
+000696  370010     BRA 0x6B8
+0006B6  E80F1E     INC [W14], [W14]
+0006B8  78001E     MOV [W14], W0
+0006BA  500FE1     SUB W0, #0x1, [W15]
+0006BC  34FFED     BRA LE, 0x698
+147:                           {
+148:                               passband(input, &outputs[i], stages[i]);
+000698  47016E     ADD W14, #0xE, W2
+00069A  78009E     MOV [W14], W1
+00069C  200900     MOV #0x90, W0
+00069E  B98800     MUL.SS W1, W0, W0
+0006A0  780000     MOV W0, W0
+0006A2  410080     ADD W2, W0, W1
+0006A4  78001E     MOV [W14], W0
+0006A6  DD0042     SL W0, #2, W0
+0006A8  470166     ADD W14, #0x6, W2
+0006AA  410000     ADD W2, W0, W0
+0006AC  780181     MOV W1, W3
+0006AE  780100     MOV W0, W2
+0006B0  90001E     MOV [W14+2], W0
+0006B2  9000AE     MOV [W14+4], W1
+0006B4  07FE24     RCALL passband
+149:                           }
+150:               #ifdef DEBUG3
+151:                           if (osc == 1)
+152:                           {
+153:                               dataOsc[0][oscCountSuper] = input;
+154:                               dataOsc[1][oscCountSuper] = outputs[0];
+155:                               dataOsc[2][oscCountSuper] = outputs[1];
+156:                               oscCountSuper++;
+157:                               if (oscCountSuper >= 1000)
+158:                               {
+159:                                   osc = 2;
+160:                               }
+161:                           }
+162:                           if (osc == 2)
+163:                           {
+164:                               for (iosc=0; iosc<1000; iosc++)
+165:                               {
+166:                                   U1TXREG = dataOsc[0][iosc]/4;
+167:                                   U1TXREG = dataOsc[1][iosc]/4;
+168:                                   U1TXREG = dataOsc[2][iosc]/4;
+169:                                   __delay_ms(10);
+170:                               }
+171:                           }
+172:               #endif /* DEBUG3 */
+173:               #ifdef DEBUG
+174:                           /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
+175:                           //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
+176:                           d_out[0][0] = outputs[0];
+177:                           //d_out[1][0] = outputs[1];
+178:                           d_max[0] = 0;
+179:                           //d_max[1] = 0;
+180:                           for (d_i=0;d_i<14; d_i++)
+181:                           {
+182:                               if (d_out[0][d_i] > d_max[0])
+183:                               {
+184:                                   d_max[0] = d_out[0][d_i];
+185:                               }
+186:                               /*if (d_out[1][d_i] > d_max[1])
+187:                               {
+188:                                   d_max[1] = d_out[1][d_i];
+189:                               }*/
+190:                           //}
+191:                           if (d_max[0] < outputs[0])
+0006BE  208000     MOV #0x800, W0
+0006C0  BE0110     MOV.D [W0], W2
+0006C2  90003E     MOV [W14+6], W0
+0006C4  9000CE     MOV [W14+8], W1
+0006C6  510F80     SUB W2, W0, [W15]
+0006C8  598F81     SUBB W3, W1, [W15]
+0006CA  3D0004     BRA GE, 0x6D4
+192:                           {
+193:                               d_max[0] = outputs[0];
+0006CC  90003E     MOV [W14+6], W0
+0006CE  9000CE     MOV [W14+8], W1
+0006D0  208002     MOV #0x800, W2
+0006D2  BE8900     MOV.D W0, [W2]
+194:                           }
+195:               #endif /* DEBUG */
+196:               #ifdef DEBUG2
+197:                           LATAbits.LATA1 = 0;
+0006D4  A922C4     BCLR LATA, #1
+198:               #endif /* DEBUG2 */
+199:                       }
+200:               	}
+000680  000000     NOP
+0006D6  37FFD5     BRA 0x682
+201:               }
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/init.c  ----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 //  BITS DE CONFIGURATION
+4:                 ///////////////////////////////////////////////////////////////////////////////
+5:                 // disables the JTAG to prevent conflicts with TRISA
+6:                 _FICD(ICS_PGD1 & JTAGEN_OFF);
+7:                 
+8:                 // disables the watchdog
+9:                 _FWDT(FWDTEN_OFF);
+10:                
+11:                // The dsPIC will be clocked by the primary oscillator with a 10MHz crystal.
+12:                // We want to use the PLL to obtain Fosc = 80MHz ( <=> 40MIPS ).
+13:                // Problem : with a 10MHz crystal, PLL constraints are not met with the
+14:                // default parameter.
+15:                // Solution :
+16:                //	- boot using the internal FRC oscillator as clock source,
+17:                //	- set the right PLL parameters to obtain Fosc = 80MHz, without violating
+18:                //	  the PLL constraints,
+19:                //	- switch the clock source to the PLL
+20:                //	- wait for the end of the clock switch
+21:                //
+22:                // Select internal FRC oscillator as clock source
+23:                _FOSCSEL(FNOSC_FRC);
+24:                // enables clock switching and configure the primary oscillator for a 10MHz crystal
+25:                _FOSC(FCKSM_CSECMD & OSCIOFNC_OFF & POSCMD_XT);
+26:                
+27:                
+28:                void oscillatorInit(void) {
+000722  FA0000     LNK #0x0
+29:                    PLLFBD = 30; // M=32
+000724  2001E0     MOV #0x1E, W0
+000726  883A30     MOV W0, PLLFBD
+30:                    CLKDIVbits.PLLPOST = 0; // N1=2
+000728  803A21     MOV CLKDIV, W1
+00072A  2FF3F0     MOV #0xFF3F, W0
+00072C  608000     AND W1, W0, W0
+00072E  883A20     MOV W0, CLKDIV
+31:                    CLKDIVbits.PLLPRE = 0; // N2=2
+000730  803A21     MOV CLKDIV, W1
+000732  2FFE00     MOV #0xFFE0, W0
+000734  608000     AND W1, W0, W0
+000736  883A20     MOV W0, CLKDIV
+32:                    __builtin_write_OSCCONH( 3 );
+000738  200032     MOV #0x3, W2
+00073A  200780     MOV #0x78, W0
+00073C  2009A1     MOV #0x9A, W1
+00073E  207433     MOV #0x743, W3
+000740  784980     MOV.B W0, [W3]
+000742  784981     MOV.B W1, [W3]
+000744  784982     MOV.B W2, [W3]
+33:                    __builtin_write_OSCCONL( 1 );
+000746  200012     MOV #0x1, W2
+000748  200460     MOV #0x46, W0
+00074A  200571     MOV #0x57, W1
+00074C  207423     MOV #0x742, W3
+00074E  784980     MOV.B W0, [W3]
+000750  784981     MOV.B W1, [W3]
+000752  784982     MOV.B W2, [W3]
+34:                    // Wait for Clock switch to occur
+35:                    while (OSCCONbits.COSC != 0b011);
+000754  000000     NOP
+000756  803A11     MOV OSCCON, W1
+000758  270000     MOV #0x7000, W0
+00075A  608080     AND W1, W0, W1
+00075C  230000     MOV #0x3000, W0
+00075E  508F80     SUB W1, W0, [W15]
+000760  3AFFFA     BRA NZ, 0x756
+36:                }
+000762  FA8000     ULNK
+000764  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/adc.c  -----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 
+4:                 void adcTimerInit(void)
+5:                 {
+0006D8  FA0000     LNK #0x0
+6:                     AD1CON1bits.AD12B = 0;  // Convertisseur sur 10 bits
+0006DA  A94321     BCLR 0x321, #2
+7:                     AD1CON3bits.ADCS = 5;   // Clock de l'adc
+0006DC  B3C050     MOV.B #0x5, W0
+0006DE  B7E324     MOV.B WREG, AD1CON3
+8:                     AD1CON1bits.ASAM = 1;   // auto sample activé
+0006E0  A84320     BSET AD1CON1, #2
+9:                     AD1CSSLbits.CSS0 = 1;   // Le convertisseur doit scanner la patte AN0
+0006E2  A80330     BSET AD1CSSL, #0
+10:                    AD1PCFGLbits.PCFG0 = 0; // AN0 en mode analogique
+0006E4  A9032C     BCLR AD1PCFGL, #0
+11:                    AD1CON1bits.SSRC = 2;   // ADC activé par le débordement du Timer3
+0006E6  801901     MOV AD1CON1, W1
+0006E8  2FF1F0     MOV #0xFF1F, W0
+0006EA  608000     AND W1, W0, W0
+0006EC  A06000     BSET W0, #6
+0006EE  881900     MOV W0, AD1CON1
+12:                    AD1CON1bits.ADON = 1;   // l'ADC est actif
+0006F0  A8E321     BSET 0x321, #7
+13:                }
+0006F2  FA8000     ULNK
+0006F4  060000     RETURN
+14:                
+15:                void adcPollingStart(void)
+16:                {
+0006F6  FA0000     LNK #0x0
+17:                    AD1CON1bits.SAMP = 0;
+0006F8  A92320     BCLR AD1CON1, #1
+18:                }
+0006FA  FA8000     ULNK
+0006FC  060000     RETURN
+19:                
+20:                
+21:                int adcConversionFinished(void)
+22:                {
+0006FE  FA0000     LNK #0x0
+23:                    return (AD1CON1bits.DONE);
+000700  801900     MOV AD1CON1, W0
+000702  784000     MOV.B W0, W0
+000704  604061     AND.B W0, #0x1, W0
+000706  FB8000     ZE W0, W0
+24:                }
+000708  FA8000     ULNK
+00070A  060000     RETURN
+25:                
+26:                
+27:                int adcRead(void)
+28:                {
+00070C  FA0000     LNK #0x0
+29:                    if (AD1CON1bits.DONE) {
+00070E  801900     MOV AD1CON1, W0
+000710  600061     AND W0, #0x1, W0
+000712  E00000     CP0 W0
+000714  320003     BRA Z, 0x71C
+30:                        AD1CON1bits.DONE = 0;
+000716  A90320     BCLR AD1CON1, #0
+31:                        return ADC1BUF0;
+000718  801800     MOV ADC1BUF0, W0
+00071A  370001     BRA 0x71E
+32:                    } else {
+33:                        return (-32768);
+00071C  280000     MOV #0x8000, W0
+34:                    }
+35:                }
+00071E  FA8000     ULNK
+000720  060000     RETURN
+0002CE  FA0000     LNK #0x0
+34:                    PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
+0002D0  20C040     MOV #0xC04, W0
+0002D2  880870     MOV W0, PR3
+35:                    T3CONbits.TCKPS = 0; // Prescaler at 1
+0002D4  800891     MOV T3CON, W1
+0002D6  2FFCF0     MOV #0xFFCF, W0
+0002D8  608000     AND W1, W0, W0
+0002DA  880890     MOV W0, T3CON
+36:                    T3CONbits.TON = 1; // Activation
+0002DC  A8E113     BSET 0x113, #7
+37:                }
+0002DE  FA8000     ULNK
+0002E0  060000     RETURN
+38:                
+39:                void UART1Init()
+40:                {
+0002E2  FA0000     LNK #0x0
+41:                    U1BRG = 21;  // baudrate of 115200
+0002E4  200150     MOV #0x15, W0
+0002E6  881140     MOV W0, U1BRG
+42:                    U1MODEbits.PDSEL = 0; // 8 bits no parity
+0002E8  801101     MOV U1MODE, W1
+0002EA  2FFF90     MOV #0xFFF9, W0
+0002EC  608000     AND W1, W0, W0
+0002EE  881100     MOV W0, U1MODE
+43:                    U1MODEbits.STSEL = 0; // 1 stop bit
+0002F0  A90220     BCLR U1MODE, #0
+44:                    U1MODEbits.URXINV = 0; // Idle state is high state
+0002F2  A98220     BCLR U1MODE, #4
+45:                    U1MODEbits.BRGH = 0; // Standard mode (not high baudrate)
+0002F4  A96220     BCLR U1MODE, #3
+46:                    U1MODEbits.UARTEN = 1; // Activate UART
+0002F6  A8E221     BSET 0x221, #7
+47:                    U1STAbits.UTXEN = 1;  // activate transmission
+0002F8  A84223     BSET 0x223, #2
+48:                }
+0002FA  FA8000     ULNK
+0002FC  060000     RETURN
+49:                
+50:                void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+51:                {
+0002FE  FA0014     LNK #0x14
+000300  BE9F88     MOV.D W8, [W15++]
+000302  BE9F8A     MOV.D W10, [W15++]
+000304  BE9F8C     MOV.D W12, [W15++]
+000306  980760     MOV W0, [W14+12]
+000308  980771     MOV W1, [W14+14]
+00030A  980F02     MOV W2, [W14+16]
+00030C  980F13     MOV W3, [W14+18]
+52:                    int i,j; // Iterator variables
+53:                    int32_t newMemory, acc; // Accumulator
+54:                    for (i=0; i<FILTER_STAGE_COUNT; i++)
+00030E  EB0000     CLR W0
+000310  780F00     MOV W0, [W14]
+000312  3700DF     BRA 0x4D2
+0004D0  E80F1E     INC [W14], [W14]
+0004D2  78001E     MOV [W14], W0
+0004D4  500FE3     SUB W0, #0x3, [W15]
+0004D6  34FF1E     BRA LE, 0x314
+55:                    {
+56:                        newMemory = stages[i].denCoeff[0] * input * M;
+000314  78009E     MOV [W14], W1
+000316  200240     MOV #0x24, W0
+000318  B98800     MUL.SS W1, W0, W0
+00031A  780000     MOV W0, W0
+00031C  90089E     MOV [W14+18], W1
+00031E  408000     ADD W1, W0, W0
+000320  9008B0     MOV [W0+22], W1
+000322  900820     MOV [W0+20], W0
+000324  90016E     MOV [W14+12], W2
+000326  B99101     MUL.SS W2, W1, W2
+000328  780102     MOV W2, W2
+00032A  9001FE     MOV [W14+14], W3
+00032C  B99A00     MUL.SS W3, W0, W4
+00032E  780184     MOV W4, W3
+000330  410103     ADD W2, W3, W2
+000332  9001EE     MOV [W14+12], W3
+000334  B81800     MUL.UU W3, W0, W0
+000336  410101     ADD W2, W1, W2
+000338  780082     MOV W2, W1
+00033A  DD0948     SL W1, #8, W2
+00033C  DE01C8     LSR W0, #8, W3
+00033E  710183     IOR W2, W3, W3
+000340  DD0148     SL W0, #8, W2
+000342  980722     MOV W2, [W14+4]
+000344  980733     MOV W3, [W14+6]
+57:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+000346  EB0000     CLR W0
+000348  980710     MOV W0, [W14+2]
+00034A  370027     BRA 0x39A
+000394  90001E     MOV [W14+2], W0
+000396  E80000     INC W0, W0
+000398  980710     MOV W0, [W14+2]
+00039A  90001E     MOV [W14+2], W0
+00039C  500FE1     SUB W0, #0x1, [W15]
+00039E  34FFD6     BRA LE, 0x34C
+58:                        {
+59:                            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
+00034C  78009E     MOV [W14], W1
+00034E  200240     MOV #0x24, W0
+000350  B98800     MUL.SS W1, W0, W0
+000352  780000     MOV W0, W0
+000354  90089E     MOV [W14+18], W1
+000356  408080     ADD W1, W0, W1
+000358  90001E     MOV [W14+2], W0
+00035A  E80000     INC W0, W0
+00035C  400065     ADD W0, #0x5, W0
+00035E  DD0042     SL W0, #2, W0
+000360  408000     ADD W1, W0, W0
+000362  BE0110     MOV.D [W0], W2
+000364  78009E     MOV [W14], W1
+000366  200240     MOV #0x24, W0
+000368  B98800     MUL.SS W1, W0, W0
+00036A  780000     MOV W0, W0
+00036C  90089E     MOV [W14+18], W1
+00036E  408080     ADD W1, W0, W1
+000370  90001E     MOV [W14+2], W0
+000372  DD0042     SL W0, #2, W0
+000374  408000     ADD W1, W0, W0
+000376  BE0010     MOV.D [W0], W0
+000378  B99A00     MUL.SS W3, W0, W4
+00037A  780204     MOV W4, W4
+00037C  B98E02     MUL.SS W1, W2, W12
+00037E  78028C     MOV W12, W5
+000380  420205     ADD W4, W5, W4
+000382  B81000     MUL.UU W2, W0, W0
+000384  420201     ADD W4, W1, W4
+000386  780084     MOV W4, W1
+000388  90012E     MOV [W14+4], W2
+00038A  9001BE     MOV [W14+6], W3
+00038C  510000     SUB W2, W0, W0
+00038E  598081     SUBB W3, W1, W1
+000390  980720     MOV W0, [W14+4]
+000392  980731     MOV W1, [W14+6]
+60:                        }
+61:                        newMemory = newMemory >> SHIFT;
+0003A0  90002E     MOV [W14+4], W0
+0003A2  9000BE     MOV [W14+6], W1
+0003A4  DD0948     SL W1, #8, W2
+0003A6  DE0348     LSR W0, #8, W6
+0003A8  710306     IOR W2, W6, W6
+0003AA  DE8BC8     ASR W1, #8, W7
+0003AC  980726     MOV W6, [W14+4]
+0003AE  980737     MOV W7, [W14+6]
+62:                        acc = stages[i].numCoeff[0] * newMemory;
+0003B0  78009E     MOV [W14], W1
+0003B2  200240     MOV #0x24, W0
+0003B4  B98800     MUL.SS W1, W0, W0
+0003B6  780000     MOV W0, W0
+0003B8  90089E     MOV [W14+18], W1
+0003BA  408000     ADD W1, W0, W0
+0003BC  9000D0     MOV [W0+10], W1
+0003BE  900040     MOV [W0+8], W0
+0003C0  90012E     MOV [W14+4], W2
+0003C2  B99101     MUL.SS W2, W1, W2
+0003C4  780102     MOV W2, W2
+0003C6  9001BE     MOV [W14+6], W3
+0003C8  B99A00     MUL.SS W3, W0, W4
+0003CA  780184     MOV W4, W3
+0003CC  410103     ADD W2, W3, W2
+0003CE  9001AE     MOV [W14+4], W3
+0003D0  B81800     MUL.UU W3, W0, W0
+0003D2  410101     ADD W2, W1, W2
+0003D4  780082     MOV W2, W1
+0003D6  980740     MOV W0, [W14+8]
+0003D8  980751     MOV W1, [W14+10]
+0003DA  980740     MOV W0, [W14+8]
+0003DC  980751     MOV W1, [W14+10]
+63:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+0003DE  EB0000     CLR W0
+0003E0  980710     MOV W0, [W14+2]
+0003E2  370027     BRA 0x432
+00042C  90001E     MOV [W14+2], W0
+00042E  E80000     INC W0, W0
+000430  980710     MOV W0, [W14+2]
+000432  90001E     MOV [W14+2], W0
+000434  500FE1     SUB W0, #0x1, [W15]
+000436  34FFD6     BRA LE, 0x3E4
+64:                        {
+65:                            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
+0003E4  78009E     MOV [W14], W1
+0003E6  200240     MOV #0x24, W0
+0003E8  B98800     MUL.SS W1, W0, W0
+0003EA  780000     MOV W0, W0
+0003EC  90089E     MOV [W14+18], W1
+0003EE  408080     ADD W1, W0, W1
+0003F0  90001E     MOV [W14+2], W0
+0003F2  E80000     INC W0, W0
+0003F4  E88000     INC2 W0, W0
+0003F6  DD0042     SL W0, #2, W0
+0003F8  408000     ADD W1, W0, W0
+0003FA  BE0110     MOV.D [W0], W2
+0003FC  78009E     MOV [W14], W1
+0003FE  200240     MOV #0x24, W0
+000400  B98800     MUL.SS W1, W0, W0
+000402  780000     MOV W0, W0
+000404  90089E     MOV [W14+18], W1
+000406  408080     ADD W1, W0, W1
+000408  90001E     MOV [W14+2], W0
+00040A  DD0042     SL W0, #2, W0
+00040C  408000     ADD W1, W0, W0
+00040E  BE0010     MOV.D [W0], W0
+000410  B99A00     MUL.SS W3, W0, W4
+000412  780204     MOV W4, W4
+000414  B98E02     MUL.SS W1, W2, W12
+000416  78028C     MOV W12, W5
+000418  420205     ADD W4, W5, W4
+00041A  B81000     MUL.UU W2, W0, W0
+00041C  420201     ADD W4, W1, W4
+00041E  780084     MOV W4, W1
+000420  90014E     MOV [W14+8], W2
+000422  9001DE     MOV [W14+10], W3
+000424  400002     ADD W0, W2, W0
+000426  488083     ADDC W1, W3, W1
+000428  980740     MOV W0, [W14+8]
+00042A  980751     MOV W1, [W14+10]
+66:                        }
+67:                        // Apply output in input of next stage
+68:                        acc = acc >> 2*SHIFT;
+000438  90004E     MOV [W14+8], W0
+00043A  9000DE     MOV [W14+10], W1
+00043C  DE8C40     ASR W1, #0, W8
+00043E  DE8CCF     ASR W1, #15, W9
+000440  980748     MOV W8, [W14+8]
+000442  980759     MOV W9, [W14+10]
+69:                        input = stages[i].gain * acc;
+000444  78009E     MOV [W14], W1
+000446  200240     MOV #0x24, W0
+000448  B98800     MUL.SS W1, W0, W0
+00044A  780000     MOV W0, W0
+00044C  90089E     MOV [W14+18], W1
+00044E  408000     ADD W1, W0, W0
+000450  901090     MOV [W0+34], W1
+000452  901000     MOV [W0+32], W0
+000454  90014E     MOV [W14+8], W2
+000456  B99101     MUL.SS W2, W1, W2
+000458  780102     MOV W2, W2
+00045A  9001DE     MOV [W14+10], W3
+00045C  B99A00     MUL.SS W3, W0, W4
+00045E  780184     MOV W4, W3
+000460  410103     ADD W2, W3, W2
+000462  9001CE     MOV [W14+8], W3
+000464  B81800     MUL.UU W3, W0, W0
+000466  410101     ADD W2, W1, W2
+000468  780082     MOV W2, W1
+00046A  980760     MOV W0, [W14+12]
+00046C  980771     MOV W1, [W14+14]
+00046E  980760     MOV W0, [W14+12]
+000470  980771     MOV W1, [W14+14]
+70:                        input = input >> SHIFT;
+000472  90006E     MOV [W14+12], W0
+000474  9000FE     MOV [W14+14], W1
+000476  DD09C8     SL W1, #8, W3
+000478  DE0548     LSR W0, #8, W10
+00047A  71850A     IOR W3, W10, W10
+00047C  DE8DC8     ASR W1, #8, W11
+00047E  98076A     MOV W10, [W14+12]
+000480  98077B     MOV W11, [W14+14]
+71:                        // Shift the memory
+72:                        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
+000482  200010     MOV #0x1, W0
+000484  980710     MOV W0, [W14+2]
+000486  370018     BRA 0x4B8
+0004B2  90001E     MOV [W14+2], W0
+0004B4  E90000     DEC W0, W0
+0004B6  980710     MOV W0, [W14+2]
+0004B8  90001E     MOV [W14+2], W0
+0004BA  E00000     CP0 W0
+0004BC  3CFFE5     BRA GT, 0x488
+73:                        {
+74:                            stages[i].memory[j] = stages[i].memory[j-1];
+000488  78009E     MOV [W14], W1
+00048A  200240     MOV #0x24, W0
+00048C  B98800     MUL.SS W1, W0, W0
+00048E  780000     MOV W0, W0
+000490  90089E     MOV [W14+18], W1
+000492  408180     ADD W1, W0, W3
+000494  78009E     MOV [W14], W1
+000496  200240     MOV #0x24, W0
+000498  B98800     MUL.SS W1, W0, W0
+00049A  780000     MOV W0, W0
+00049C  90089E     MOV [W14+18], W1
+00049E  408080     ADD W1, W0, W1
+0004A0  90001E     MOV [W14+2], W0
+0004A2  E90000     DEC W0, W0
+0004A4  DD0042     SL W0, #2, W0
+0004A6  408000     ADD W1, W0, W0
+0004A8  BE0010     MOV.D [W0], W0
+0004AA  90011E     MOV [W14+2], W2
+0004AC  DD1142     SL W2, #2, W2
+0004AE  418102     ADD W3, W2, W2
+0004B0  BE8900     MOV.D W0, [W2]
+75:                        }
+76:                        stages[i].memory[0] = newMemory;
+0004BE  78009E     MOV [W14], W1
+0004C0  200240     MOV #0x24, W0
+0004C2  B98800     MUL.SS W1, W0, W0
+0004C4  780000     MOV W0, W0
+0004C6  90089E     MOV [W14+18], W1
+0004C8  408000     ADD W1, W0, W0
+0004CA  90012E     MOV [W14+4], W2
+0004CC  9001BE     MOV [W14+6], W3
+0004CE  BE8802     MOV.D W2, [W0]
+77:                    }
+78:                    *output = input;
+0004D8  90080E     MOV [W14+16], W0
+0004DA  90016E     MOV [W14+12], W2
+0004DC  9001FE     MOV [W14+14], W3
+0004DE  BE8802     MOV.D W2, [W0]
+79:                }
+0004E0  BE064F     MOV.D [--W15], W12
+0004E2  BE054F     MOV.D [--W15], W10
+0004E4  BE044F     MOV.D [--W15], W8
+0004E6  FA8000     ULNK
+0004E8  060000     RETURN
+80:                
+81:                int main(void)
+82:                {
+0004EA  FA012E     LNK #0x12E
+83:                    int i; // Iterator variable
+84:                	oscillatorInit();
+0004EC  07011A     RCALL oscillatorInit
+85:                    AD1PCFGL = 0xFFFF;
+0004EE  EB8000     SETM W0
+0004F0  881960     MOV W0, AD1PCFGL
+86:                    
+87:                    // Init ADC1 on AN0
+88:                    timer3Init();
+0004F2  07FEED     RCALL timer3Init
+89:                    adcTimerInit();
+0004F4  0700F1     RCALL adcTimerInit
+90:                    
+91:                #ifdef DEBUG2
+92:                    TRISAbits.TRISA1 = 0;
+0004F6  A922C0     BCLR TRISA, #1
+93:                #endif /* DEBUG2 */
+94:                    
+95:                #ifdef DEBUG3    
+96:                    // Init UART1
+97:                    UART1Init();
+98:                    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+99:                    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+100:                   char rxReg;
+101:                   int osc = 0;
+102:                   int oscCountSuper = 0;
+103:                   int dataOsc[3][1000];
+104:                   int iosc;
+105:               #endif /* DEBUG3 */
+106:                   
+107:                   // Init the passband filters [0]:900 / [1]:1100
+108:                   int32_t input;
+109:                   int32_t outputs[FILTER_COUNT];
+110:                   filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
+0004F8  4700EE     ADD W14, #0xE, W1
+0004FA  09008F     REPEAT #0x8F
+0004FC  EB1880     CLR [W1++]
+0004FE  201000     MOV #0x100, W0
+000500  200001     MOV #0x0, W1
+000502  980F30     MOV W0, [W14+22]
+000504  980F41     MOV W1, [W14+24]
+000506  2FF000     MOV #0xFF00, W0
+000508  2FFFF1     MOV #0xFFFF, W1
+00050A  980F70     MOV W0, [W14+30]
+00050C  981701     MOV W1, [W14+32]
+00050E  201000     MOV #0x100, W0
+000510  200001     MOV #0x0, W1
+000512  981710     MOV W0, [W14+34]
+000514  981721     MOV W1, [W14+36]
+000516  2FE330     MOV #0xFE33, W0
+000518  2FFFF1     MOV #0xFFFF, W1
+00051A  981730     MOV W0, [W14+38]
+00051C  981741     MOV W1, [W14+40]
+00051E  200FE0     MOV #0xFE, W0
+000520  200001     MOV #0x0, W1
+000522  981750     MOV W0, [W14+42]
+000524  981761     MOV W1, [W14+44]
+000526  200020     MOV #0x2, W0
+000528  200001     MOV #0x0, W1
+00052A  981770     MOV W0, [W14+46]
+00052C  981F01     MOV W1, [W14+48]
+00052E  201000     MOV #0x100, W0
+000530  200001     MOV #0x0, W1
+000532  981F50     MOV W0, [W14+58]
+000534  981F61     MOV W1, [W14+60]
+000536  2FF000     MOV #0xFF00, W0
+000538  2FFFF1     MOV #0xFFFF, W1
+00053A  982710     MOV W0, [W14+66]
+00053C  982721     MOV W1, [W14+68]
+00053E  201000     MOV #0x100, W0
+000540  200001     MOV #0x0, W1
+000542  982730     MOV W0, [W14+70]
+000544  982741     MOV W1, [W14+72]
+000546  2FE300     MOV #0xFE30, W0
+000548  2FFFF1     MOV #0xFFFF, W1
+00054A  982750     MOV W0, [W14+74]
+00054C  982761     MOV W1, [W14+76]
+00054E  200FE0     MOV #0xFE, W0
+000550  200001     MOV #0x0, W1
+000552  982770     MOV W0, [W14+78]
+000554  982F01     MOV W1, [W14+80]
+000556  200020     MOV #0x2, W0
+000558  200001     MOV #0x0, W1
+00055A  982F10     MOV W0, [W14+82]
+00055C  982F21     MOV W1, [W14+84]
+00055E  201000     MOV #0x100, W0
+000560  200001     MOV #0x0, W1
+000562  982F70     MOV W0, [W14+94]
+000564  983701     MOV W1, [W14+96]
+000566  2FF000     MOV #0xFF00, W0
+000568  2FFFF1     MOV #0xFFFF, W1
+00056A  983730     MOV W0, [W14+102]
+00056C  983741     MOV W1, [W14+104]
+00056E  201000     MOV #0x100, W0
+000570  200001     MOV #0x0, W1
+000572  983750     MOV W0, [W14+106]
+000574  983761     MOV W1, [W14+108]
+000576  2FE340     MOV #0xFE34, W0
+000578  2FFFF1     MOV #0xFFFF, W1
+00057A  983770     MOV W0, [W14+110]
+00057C  983F01     MOV W1, [W14+112]
+00057E  200FC0     MOV #0xFC, W0
+000580  200001     MOV #0x0, W1
+000582  983F10     MOV W0, [W14+114]
+000584  983F21     MOV W1, [W14+116]
+000586  200020     MOV #0x2, W0
+000588  200001     MOV #0x0, W1
+00058A  983F30     MOV W0, [W14+118]
+00058C  983F41     MOV W1, [W14+120]
+00058E  201000     MOV #0x100, W0
+000590  200001     MOV #0x0, W1
+000592  988710     MOV W0, [W14+130]
+000594  988721     MOV W1, [W14+132]
+000596  2FF000     MOV #0xFF00, W0
+000598  2FFFF1     MOV #0xFFFF, W1
+00059A  988750     MOV W0, [W14+138]
+00059C  988761     MOV W1, [W14+140]
+00059E  201000     MOV #0x100, W0
+0005A0  200001     MOV #0x0, W1
+0005A2  988770     MOV W0, [W14+142]
+0005A4  988F01     MOV W1, [W14+144]
+0005A6  2FE330     MOV #0xFE33, W0
+0005A8  2FFFF1     MOV #0xFFFF, W1
+0005AA  988F10     MOV W0, [W14+146]
+0005AC  988F21     MOV W1, [W14+148]
+0005AE  200FC0     MOV #0xFC, W0
+0005B0  200001     MOV #0x0, W1
+0005B2  988F30     MOV W0, [W14+150]
+0005B4  988F41     MOV W1, [W14+152]
+0005B6  200020     MOV #0x2, W0
+0005B8  200001     MOV #0x0, W1
+0005BA  988F50     MOV W0, [W14+154]
+0005BC  988F61     MOV W1, [W14+156]
+0005BE  201000     MOV #0x100, W0
+0005C0  200001     MOV #0x0, W1
+0005C2  989730     MOV W0, [W14+166]
+0005C4  989741     MOV W1, [W14+168]
+0005C6  2FF000     MOV #0xFF00, W0
+0005C8  2FFFF1     MOV #0xFFFF, W1
+0005CA  989770     MOV W0, [W14+174]
+0005CC  989F01     MOV W1, [W14+176]
+0005CE  201000     MOV #0x100, W0
+0005D0  200001     MOV #0x0, W1
+0005D2  989F10     MOV W0, [W14+178]
+0005D4  989F21     MOV W1, [W14+180]
+0005D6  2FE4B0     MOV #0xFE4B, W0
+0005D8  2FFFF1     MOV #0xFFFF, W1
+0005DA  989F30     MOV W0, [W14+182]
+0005DC  989F41     MOV W1, [W14+184]
+0005DE  200FD0     MOV #0xFD, W0
+0005E0  200001     MOV #0x0, W1
+0005E2  989F50     MOV W0, [W14+186]
+0005E4  989F61     MOV W1, [W14+188]
+0005E6  200020     MOV #0x2, W0
+0005E8  200001     MOV #0x0, W1
+0005EA  989F70     MOV W0, [W14+190]
+0005EC  98A701     MOV W1, [W14+192]
+0005EE  201000     MOV #0x100, W0
+0005F0  200001     MOV #0x0, W1
+0005F2  98A750     MOV W0, [W14+202]
+0005F4  98A761     MOV W1, [W14+204]
+0005F6  2FF000     MOV #0xFF00, W0
+0005F8  2FFFF1     MOV #0xFFFF, W1
+0005FA  98AF10     MOV W0, [W14+210]
+0005FC  98AF21     MOV W1, [W14+212]
+0005FE  201000     MOV #0x100, W0
+000600  200001     MOV #0x0, W1
+000602  98AF30     MOV W0, [W14+214]
+000604  98AF41     MOV W1, [W14+216]
+000606  2FE460     MOV #0xFE46, W0
+000608  2FFFF1     MOV #0xFFFF, W1
+00060A  98AF50     MOV W0, [W14+218]
+00060C  98AF61     MOV W1, [W14+220]
+00060E  200FE0     MOV #0xFE, W0
+000610  200001     MOV #0x0, W1
+000612  98AF70     MOV W0, [W14+222]
+000614  98B701     MOV W1, [W14+224]
+000616  200020     MOV #0x2, W0
+000618  200001     MOV #0x0, W1
+00061A  98B710     MOV W0, [W14+226]
+00061C  98B721     MOV W1, [W14+228]
+00061E  201000     MOV #0x100, W0
+000620  200001     MOV #0x0, W1
+000622  98B770     MOV W0, [W14+238]
+000624  98BF01     MOV W1, [W14+240]
+000626  2FF000     MOV #0xFF00, W0
+000628  2FFFF1     MOV #0xFFFF, W1
+00062A  98BF30     MOV W0, [W14+246]
+00062C  98BF41     MOV W1, [W14+248]
+00062E  201000     MOV #0x100, W0
+000630  200001     MOV #0x0, W1
+000632  98BF50     MOV W0, [W14+250]
+000634  98BF61     MOV W1, [W14+252]
+000636  2FE4C0     MOV #0xFE4C, W0
+000638  2FFFF1     MOV #0xFFFF, W1
+00063A  98BF70     MOV W0, [W14+254]
+00063C  990701     MOV W1, [W14+256]
+00063E  200FB0     MOV #0xFB, W0
+000640  200001     MOV #0x0, W1
+000642  990710     MOV W0, [W14+258]
+000644  990721     MOV W1, [W14+260]
+000646  200020     MOV #0x2, W0
+000648  200001     MOV #0x0, W1
+00064A  990730     MOV W0, [W14+262]
+00064C  990741     MOV W1, [W14+264]
+00064E  201000     MOV #0x100, W0
+000650  200001     MOV #0x0, W1
+000652  990F10     MOV W0, [W14+274]
+000654  990F21     MOV W1, [W14+276]
+000656  2FF000     MOV #0xFF00, W0
+000658  2FFFF1     MOV #0xFFFF, W1
+00065A  990F50     MOV W0, [W14+282]
+00065C  990F61     MOV W1, [W14+284]
+00065E  201000     MOV #0x100, W0
+000660  200001     MOV #0x0, W1
+000662  990F70     MOV W0, [W14+286]
+000664  991701     MOV W1, [W14+288]
+000666  2FE4A0     MOV #0xFE4A, W0
+000668  2FFFF1     MOV #0xFFFF, W1
+00066A  991710     MOV W0, [W14+290]
+00066C  991721     MOV W1, [W14+292]
+00066E  200FB0     MOV #0xFB, W0
+000670  200001     MOV #0x0, W1
+000672  991730     MOV W0, [W14+294]
+000674  991741     MOV W1, [W14+296]
+000676  200020     MOV #0x2, W0
+000678  200001     MOV #0x0, W1
+00067A  991750     MOV W0, [W14+298]
+00067C  991761     MOV W1, [W14+300]
+00067E  370001     BRA 0x682
+111:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8011571239155957*M,0.99343663965814499*M}, 0.0084342754131484891*M},
+112:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.8144890622013676*M,0.99365313679164347*M}, 0.0084342754131484891*M},
+113:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7968934937505234*M,0.98437870027614971*M}, 0.0083961616899833683*M},
+114:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.802504614864014*M,0.98459330636028497*M}, 0.0083961616899833683*M} },
+115:                         
+116:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7072742575792748*M,0.99198489677340751*M}, 0.010305881103809989*M},
+117:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7268035972665099*M,0.9922402806273074*M}, 0.010305881103809989*M},
+118:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7035572899577904*M,0.98093595942427547*M}, 0.01024910202670197*M},
+119:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
+120:                   };
+121:               	
+122:               	while(1) {
+123:               #ifdef DEBUG3
+124:                       if (U1STAbits.URXDA)  // A message is in the receiver buffer
+125:                       {
+126:                           rxReg = U1RXREG;
+127:                           if (rxReg == 's')
+128:                           {
+129:                               // send the samples to oscilloscope
+130:                               osc = 1;
+131:                           }
+132:                           else
+133:                           {
+134:                               U1TXREG = rxReg; // Echo test
+135:                           }
+136:                       }
+137:               #endif /* DEBUG3 */
+138:                       if (adcConversionFinished())
+000682  07003D     RCALL adcConversionFinished
+000684  E00000     CP0 W0
+000686  32FFFC     BRA Z, 0x680
+139:                       {
+140:               #ifdef DEBUG2
+141:                           LATAbits.LATA1 = 1;
+000688  A822C4     BSET LATA, #1
+142:               #endif /* DEBUG2 */
+143:                           // signal needs to be processed
+144:                           input = (int32_t)adcRead();
+00068A  070040     RCALL adcRead
+00068C  DE80CF     ASR W0, #15, W1
+00068E  980710     MOV W0, [W14+2]
+000690  980721     MOV W1, [W14+4]
+145:                           // Send signal to each passband filter
+146:                           for (i=0; i<FILTER_COUNT;i++)
+000692  EB0000     CLR W0
+000694  780F00     MOV W0, [W14]
+000696  370010     BRA 0x6B8
+0006B6  E80F1E     INC [W14], [W14]
+0006B8  78001E     MOV [W14], W0
+0006BA  500FE1     SUB W0, #0x1, [W15]
+0006BC  34FFED     BRA LE, 0x698
+147:                           {
+148:                               passband(input, &outputs[i], stages[i]);
+000698  47016E     ADD W14, #0xE, W2
+00069A  78009E     MOV [W14], W1
+00069C  200900     MOV #0x90, W0
+00069E  B98800     MUL.SS W1, W0, W0
+0006A0  780000     MOV W0, W0
+0006A2  410080     ADD W2, W0, W1
+0006A4  78001E     MOV [W14], W0
+0006A6  DD0042     SL W0, #2, W0
+0006A8  470166     ADD W14, #0x6, W2
+0006AA  410000     ADD W2, W0, W0
+0006AC  780181     MOV W1, W3
+0006AE  780100     MOV W0, W2
+0006B0  90001E     MOV [W14+2], W0
+0006B2  9000AE     MOV [W14+4], W1
+0006B4  07FE24     RCALL passband
+149:                           }
+150:               #ifdef DEBUG3
+151:                           if (osc == 1)
+152:                           {
+153:                               dataOsc[0][oscCountSuper] = input;
+154:                               dataOsc[1][oscCountSuper] = outputs[0];
+155:                               dataOsc[2][oscCountSuper] = outputs[1];
+156:                               oscCountSuper++;
+157:                               if (oscCountSuper >= 1000)
+158:                               {
+159:                                   osc = 2;
+160:                               }
+161:                           }
+162:                           if (osc == 2)
+163:                           {
+164:                               for (iosc=0; iosc<1000; iosc++)
+165:                               {
+166:                                   U1TXREG = dataOsc[0][iosc]/4;
+167:                                   U1TXREG = dataOsc[1][iosc]/4;
+168:                                   U1TXREG = dataOsc[2][iosc]/4;
+169:                                   __delay_ms(10);
+170:                               }
+171:                           }
+172:               #endif /* DEBUG3 */
+173:               #ifdef DEBUG
+174:                           /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
+175:                           //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
+176:                           d_out[0][0] = outputs[0];
+177:                           //d_out[1][0] = outputs[1];
+178:                           d_max[0] = 0;
+179:                           //d_max[1] = 0;
+180:                           for (d_i=0;d_i<14; d_i++)
+181:                           {
+182:                               if (d_out[0][d_i] > d_max[0])
+183:                               {
+184:                                   d_max[0] = d_out[0][d_i];
+185:                               }
+186:                               /*if (d_out[1][d_i] > d_max[1])
+187:                               {
+188:                                   d_max[1] = d_out[1][d_i];
+189:                               }*/
+190:                           //}
+191:                           if (d_max[0] < outputs[0])
+0006BE  208000     MOV #0x800, W0
+0006C0  BE0110     MOV.D [W0], W2
+0006C2  90003E     MOV [W14+6], W0
+0006C4  9000CE     MOV [W14+8], W1
+0006C6  510F80     SUB W2, W0, [W15]
+0006C8  598F81     SUBB W3, W1, [W15]
+0006CA  3D0004     BRA GE, 0x6D4
+192:                           {
+193:                               d_max[0] = outputs[0];
+0006CC  90003E     MOV [W14+6], W0
+0006CE  9000CE     MOV [W14+8], W1
+0006D0  208002     MOV #0x800, W2
+0006D2  BE8900     MOV.D W0, [W2]
+194:                           }
+195:               #endif /* DEBUG */
+196:               #ifdef DEBUG2
+197:                           LATAbits.LATA1 = 0;
+0006D4  A922C4     BCLR LATA, #1
+198:               #endif /* DEBUG2 */
+199:                       }
+200:               	}
+000680  000000     NOP
+0006D6  37FFD5     BRA 0x682
+201:               }
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/init.c  ----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 //  BITS DE CONFIGURATION
+4:                 ///////////////////////////////////////////////////////////////////////////////
+5:                 // disables the JTAG to prevent conflicts with TRISA
+6:                 _FICD(ICS_PGD1 & JTAGEN_OFF);
+7:                 
+8:                 // disables the watchdog
+9:                 _FWDT(FWDTEN_OFF);
+10:                
+11:                // The dsPIC will be clocked by the primary oscillator with a 10MHz crystal.
+12:                // We want to use the PLL to obtain Fosc = 80MHz ( <=> 40MIPS ).
+13:                // Problem : with a 10MHz crystal, PLL constraints are not met with the
+14:                // default parameter.
+15:                // Solution :
+16:                //	- boot using the internal FRC oscillator as clock source,
+17:                //	- set the right PLL parameters to obtain Fosc = 80MHz, without violating
+18:                //	  the PLL constraints,
+19:                //	- switch the clock source to the PLL
+20:                //	- wait for the end of the clock switch
+21:                //
+22:                // Select internal FRC oscillator as clock source
+23:                _FOSCSEL(FNOSC_FRC);
+24:                // enables clock switching and configure the primary oscillator for a 10MHz crystal
+25:                _FOSC(FCKSM_CSECMD & OSCIOFNC_OFF & POSCMD_XT);
+26:                
+27:                
+28:                void oscillatorInit(void) {
+000722  FA0000     LNK #0x0
+29:                    PLLFBD = 30; // M=32
+000724  2001E0     MOV #0x1E, W0
+000726  883A30     MOV W0, PLLFBD
+30:                    CLKDIVbits.PLLPOST = 0; // N1=2
+000728  803A21     MOV CLKDIV, W1
+00072A  2FF3F0     MOV #0xFF3F, W0
+00072C  608000     AND W1, W0, W0
+00072E  883A20     MOV W0, CLKDIV
+31:                    CLKDIVbits.PLLPRE = 0; // N2=2
+000730  803A21     MOV CLKDIV, W1
+000732  2FFE00     MOV #0xFFE0, W0
+000734  608000     AND W1, W0, W0
+000736  883A20     MOV W0, CLKDIV
+32:                    __builtin_write_OSCCONH( 3 );
+000738  200032     MOV #0x3, W2
+00073A  200780     MOV #0x78, W0
+00073C  2009A1     MOV #0x9A, W1
+00073E  207433     MOV #0x743, W3
+000740  784980     MOV.B W0, [W3]
+000742  784981     MOV.B W1, [W3]
+000744  784982     MOV.B W2, [W3]
+33:                    __builtin_write_OSCCONL( 1 );
+000746  200012     MOV #0x1, W2
+000748  200460     MOV #0x46, W0
+00074A  200571     MOV #0x57, W1
+00074C  207423     MOV #0x742, W3
+00074E  784980     MOV.B W0, [W3]
+000750  784981     MOV.B W1, [W3]
+000752  784982     MOV.B W2, [W3]
+34:                    // Wait for Clock switch to occur
+35:                    while (OSCCONbits.COSC != 0b011);
+000754  000000     NOP
+000756  803A11     MOV OSCCON, W1
+000758  270000     MOV #0x7000, W0
+00075A  608080     AND W1, W0, W1
+00075C  230000     MOV #0x3000, W0
+00075E  508F80     SUB W1, W0, [W15]
+000760  3AFFFA     BRA NZ, 0x756
+36:                }
+000762  FA8000     ULNK
+000764  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/adc.c  -----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 
+4:                 void adcTimerInit(void)
+5:                 {
+0006D8  FA0000     LNK #0x0
+6:                     AD1CON1bits.AD12B = 0;  // Convertisseur sur 10 bits
+0006DA  A94321     BCLR 0x321, #2
+7:                     AD1CON3bits.ADCS = 5;   // Clock de l'adc
+0006DC  B3C050     MOV.B #0x5, W0
+0006DE  B7E324     MOV.B WREG, AD1CON3
+8:                     AD1CON1bits.ASAM = 1;   // auto sample activé
+0006E0  A84320     BSET AD1CON1, #2
+9:                     AD1CSSLbits.CSS0 = 1;   // Le convertisseur doit scanner la patte AN0
+0006E2  A80330     BSET AD1CSSL, #0
+10:                    AD1PCFGLbits.PCFG0 = 0; // AN0 en mode analogique
+0006E4  A9032C     BCLR AD1PCFGL, #0
+11:                    AD1CON1bits.SSRC = 2;   // ADC activé par le débordement du Timer3
+0006E6  801901     MOV AD1CON1, W1
+0006E8  2FF1F0     MOV #0xFF1F, W0
+0006EA  608000     AND W1, W0, W0
+0006EC  A06000     BSET W0, #6
+0006EE  881900     MOV W0, AD1CON1
+12:                    AD1CON1bits.ADON = 1;   // l'ADC est actif
+0006F0  A8E321     BSET 0x321, #7
+13:                }
+0006F2  FA8000     ULNK
+0006F4  060000     RETURN
+14:                
+15:                void adcPollingStart(void)
+16:                {
+0006F6  FA0000     LNK #0x0
+17:                    AD1CON1bits.SAMP = 0;
+0006F8  A92320     BCLR AD1CON1, #1
+18:                }
+0006FA  FA8000     ULNK
+0006FC  060000     RETURN
+19:                
+20:                
+21:                int adcConversionFinished(void)
+22:                {
+0006FE  FA0000     LNK #0x0
+23:                    return (AD1CON1bits.DONE);
+000700  801900     MOV AD1CON1, W0
+000702  784000     MOV.B W0, W0
+000704  604061     AND.B W0, #0x1, W0
+000706  FB8000     ZE W0, W0
+24:                }
+000708  FA8000     ULNK
+00070A  060000     RETURN
+25:                
+26:                
+27:                int adcRead(void)
+28:                {
+00070C  FA0000     LNK #0x0
+29:                    if (AD1CON1bits.DONE) {
+00070E  801900     MOV AD1CON1, W0
+000710  600061     AND W0, #0x1, W0
+000712  E00000     CP0 W0
+000714  320003     BRA Z, 0x71C
+30:                        AD1CON1bits.DONE = 0;
+000716  A90320     BCLR AD1CON1, #0
+31:                        return ADC1BUF0;
+000718  801800     MOV ADC1BUF0, W0
+00071A  370001     BRA 0x71E
+32:                    } else {
+33:                        return (-32768);
+00071C  280000     MOV #0x8000, W0
+34:                    }
+35:                }
+00071E  FA8000     ULNK
+000720  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/main.c  ----------------------------------------
+1:                 #include "init.h"
+2:                 #include "adc.h"
+3:                 #include <xc.h>
+4:                 #include <string.h> // for memmove()
+5:                 
+6:                 #define FILTER_STAGE_COUNT 4
+7:                 #define FILTER_STAGE_ORDER 2
+8:                 #define FILTER_COUNT 2
+9:                 
+10:                // Multiplier for float to int32_t
+11:                #define SHIFT 8
+12:                #define M (int32_t)(1 << SHIFT)
+13:                
+14:                #define DEBUG
+15:                #define DEBUG2
+16:                //#define DEBUG3
+17:                #include <libpic30.h>
+18:                
+19:                #ifdef DEBUG
+20:                    int32_t d_out[2][14];
+21:                    int32_t d_max[2];
+22:                    int d_i;
+23:                #endif /* DEBUG */
+24:                
+25:                typedef struct filterStageData_s {
+26:                    int32_t memory[FILTER_STAGE_ORDER];
+27:                    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+28:                    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+29:                    int32_t gain;
+30:                } filterStageData_s;
+31:                
+32:                void timer3Init()
+33:                {
+0002CE  FA0000     LNK #0x0
+34:                    PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
+0002D0  20C040     MOV #0xC04, W0
+0002D2  880870     MOV W0, PR3
+35:                    T3CONbits.TCKPS = 0; // Prescaler at 1
+0002D4  800891     MOV T3CON, W1
+0002D6  2FFCF0     MOV #0xFFCF, W0
+0002D8  608000     AND W1, W0, W0
+0002DA  880890     MOV W0, T3CON
+36:                    T3CONbits.TON = 1; // Activation
+0002DC  A8E113     BSET 0x113, #7
+37:                }
+0002DE  FA8000     ULNK
+0002E0  060000     RETURN
+38:                
+39:                void UART1Init()
+40:                {
+0002E2  FA0000     LNK #0x0
+41:                    U1BRG = 21;  // baudrate of 115200
+0002E4  200150     MOV #0x15, W0
+0002E6  881140     MOV W0, U1BRG
+42:                    U1MODEbits.PDSEL = 0; // 8 bits no parity
+0002E8  801101     MOV U1MODE, W1
+0002EA  2FFF90     MOV #0xFFF9, W0
+0002EC  608000     AND W1, W0, W0
+0002EE  881100     MOV W0, U1MODE
+43:                    U1MODEbits.STSEL = 0; // 1 stop bit
+0002F0  A90220     BCLR U1MODE, #0
+44:                    U1MODEbits.URXINV = 0; // Idle state is high state
+0002F2  A98220     BCLR U1MODE, #4
+45:                    U1MODEbits.BRGH = 0; // Standard mode (not high baudrate)
+0002F4  A96220     BCLR U1MODE, #3
+46:                    U1MODEbits.UARTEN = 1; // Activate UART
+0002F6  A8E221     BSET 0x221, #7
+47:                    U1STAbits.UTXEN = 1;  // activate transmission
+0002F8  A84223     BSET 0x223, #2
+48:                }
+0002FA  FA8000     ULNK
+0002FC  060000     RETURN
+49:                
+50:                void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+51:                {
+0002FE  FA0014     LNK #0x14
+000300  BE9F88     MOV.D W8, [W15++]
+000302  BE9F8A     MOV.D W10, [W15++]
+000304  BE9F8C     MOV.D W12, [W15++]
+000306  980760     MOV W0, [W14+12]
+000308  980771     MOV W1, [W14+14]
+00030A  980F02     MOV W2, [W14+16]
+00030C  980F13     MOV W3, [W14+18]
+52:                    int i,j; // Iterator variables
+53:                    int32_t newMemory, acc; // Accumulator
+54:                    for (i=0; i<FILTER_STAGE_COUNT; i++)
+00030E  EB0000     CLR W0
+000310  780F00     MOV W0, [W14]
+000312  3700DF     BRA 0x4D2
+0004D0  E80F1E     INC [W14], [W14]
+0004D2  78001E     MOV [W14], W0
+0004D4  500FE3     SUB W0, #0x3, [W15]
+0004D6  34FF1E     BRA LE, 0x314
+55:                    {
+56:                        newMemory = stages[i].denCoeff[0] * input * M;
+000314  78009E     MOV [W14], W1
+000316  200240     MOV #0x24, W0
+000318  B98800     MUL.SS W1, W0, W0
+00031A  780000     MOV W0, W0
+00031C  90089E     MOV [W14+18], W1
+00031E  408000     ADD W1, W0, W0
+000320  9008B0     MOV [W0+22], W1
+000322  900820     MOV [W0+20], W0
+000324  90016E     MOV [W14+12], W2
+000326  B99101     MUL.SS W2, W1, W2
+000328  780102     MOV W2, W2
+00032A  9001FE     MOV [W14+14], W3
+00032C  B99A00     MUL.SS W3, W0, W4
+00032E  780184     MOV W4, W3
+000330  410103     ADD W2, W3, W2
+000332  9001EE     MOV [W14+12], W3
+000334  B81800     MUL.UU W3, W0, W0
+000336  410101     ADD W2, W1, W2
+000338  780082     MOV W2, W1
+00033A  DD0948     SL W1, #8, W2
+00033C  DE01C8     LSR W0, #8, W3
+00033E  710183     IOR W2, W3, W3
+000340  DD0148     SL W0, #8, W2
+000342  980722     MOV W2, [W14+4]
+000344  980733     MOV W3, [W14+6]
+57:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+000346  EB0000     CLR W0
+000348  980710     MOV W0, [W14+2]
+00034A  370027     BRA 0x39A
+000394  90001E     MOV [W14+2], W0
+000396  E80000     INC W0, W0
+000398  980710     MOV W0, [W14+2]
+00039A  90001E     MOV [W14+2], W0
+00039C  500FE1     SUB W0, #0x1, [W15]
+00039E  34FFD6     BRA LE, 0x34C
+58:                        {
+59:                            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
+00034C  78009E     MOV [W14], W1
+00034E  200240     MOV #0x24, W0
+000350  B98800     MUL.SS W1, W0, W0
+000352  780000     MOV W0, W0
+000354  90089E     MOV [W14+18], W1
+000356  408080     ADD W1, W0, W1
+000358  90001E     MOV [W14+2], W0
+00035A  E80000     INC W0, W0
+00035C  400065     ADD W0, #0x5, W0
+00035E  DD0042     SL W0, #2, W0
+000360  408000     ADD W1, W0, W0
+000362  BE0110     MOV.D [W0], W2
+000364  78009E     MOV [W14], W1
+000366  200240     MOV #0x24, W0
+000368  B98800     MUL.SS W1, W0, W0
+00036A  780000     MOV W0, W0
+00036C  90089E     MOV [W14+18], W1
+00036E  408080     ADD W1, W0, W1
+000370  90001E     MOV [W14+2], W0
+000372  DD0042     SL W0, #2, W0
+000374  408000     ADD W1, W0, W0
+000376  BE0010     MOV.D [W0], W0
+000378  B99A00     MUL.SS W3, W0, W4
+00037A  780204     MOV W4, W4
+00037C  B98E02     MUL.SS W1, W2, W12
+00037E  78028C     MOV W12, W5
+000380  420205     ADD W4, W5, W4
+000382  B81000     MUL.UU W2, W0, W0
+000384  420201     ADD W4, W1, W4
+000386  780084     MOV W4, W1
+000388  90012E     MOV [W14+4], W2
+00038A  9001BE     MOV [W14+6], W3
+00038C  510000     SUB W2, W0, W0
+00038E  598081     SUBB W3, W1, W1
+000390  980720     MOV W0, [W14+4]
+000392  980731     MOV W1, [W14+6]
+60:                        }
+61:                        newMemory = newMemory >> SHIFT;
+0003A0  90002E     MOV [W14+4], W0
+0003A2  9000BE     MOV [W14+6], W1
+0003A4  DD0948     SL W1, #8, W2
+0003A6  DE0348     LSR W0, #8, W6
+0003A8  710306     IOR W2, W6, W6
+0003AA  DE8BC8     ASR W1, #8, W7
+0003AC  980726     MOV W6, [W14+4]
+0003AE  980737     MOV W7, [W14+6]
+62:                        acc = stages[i].numCoeff[0] * newMemory;
+0003B0  78009E     MOV [W14], W1
+0003B2  200240     MOV #0x24, W0
+0003B4  B98800     MUL.SS W1, W0, W0
+0003B6  780000     MOV W0, W0
+0003B8  90089E     MOV [W14+18], W1
+0003BA  408000     ADD W1, W0, W0
+0003BC  9000D0     MOV [W0+10], W1
+0003BE  900040     MOV [W0+8], W0
+0003C0  90012E     MOV [W14+4], W2
+0003C2  B99101     MUL.SS W2, W1, W2
+0003C4  780102     MOV W2, W2
+0003C6  9001BE     MOV [W14+6], W3
+0003C8  B99A00     MUL.SS W3, W0, W4
+0003CA  780184     MOV W4, W3
+0003CC  410103     ADD W2, W3, W2
+0003CE  9001AE     MOV [W14+4], W3
+0003D0  B81800     MUL.UU W3, W0, W0
+0003D2  410101     ADD W2, W1, W2
+0003D4  780082     MOV W2, W1
+0003D6  980740     MOV W0, [W14+8]
+0003D8  980751     MOV W1, [W14+10]
+0003DA  980740     MOV W0, [W14+8]
+0003DC  980751     MOV W1, [W14+10]
+63:                        for (j=0;j<FILTER_STAGE_ORDER; j++)
+0003DE  EB0000     CLR W0
+0003E0  980710     MOV W0, [W14+2]
+0003E2  370027     BRA 0x432
+00042C  90001E     MOV [W14+2], W0
+00042E  E80000     INC W0, W0
+000430  980710     MOV W0, [W14+2]
+000432  90001E     MOV [W14+2], W0
+000434  500FE1     SUB W0, #0x1, [W15]
+000436  34FFD6     BRA LE, 0x3E4
+64:                        {
+65:                            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
+0003E4  78009E     MOV [W14], W1
+0003E6  200240     MOV #0x24, W0
+0003E8  B98800     MUL.SS W1, W0, W0
+0003EA  780000     MOV W0, W0
+0003EC  90089E     MOV [W14+18], W1
+0003EE  408080     ADD W1, W0, W1
+0003F0  90001E     MOV [W14+2], W0
+0003F2  E80000     INC W0, W0
+0003F4  E88000     INC2 W0, W0
+0003F6  DD0042     SL W0, #2, W0
+0003F8  408000     ADD W1, W0, W0
+0003FA  BE0110     MOV.D [W0], W2
+0003FC  78009E     MOV [W14], W1
+0003FE  200240     MOV #0x24, W0
+000400  B98800     MUL.SS W1, W0, W0
+000402  780000     MOV W0, W0
+000404  90089E     MOV [W14+18], W1
+000406  408080     ADD W1, W0, W1
+000408  90001E     MOV [W14+2], W0
+00040A  DD0042     SL W0, #2, W0
+00040C  408000     ADD W1, W0, W0
+00040E  BE0010     MOV.D [W0], W0
+000410  B99A00     MUL.SS W3, W0, W4
+000412  780204     MOV W4, W4
+000414  B98E02     MUL.SS W1, W2, W12
+000416  78028C     MOV W12, W5
+000418  420205     ADD W4, W5, W4
+00041A  B81000     MUL.UU W2, W0, W0
+00041C  420201     ADD W4, W1, W4
+00041E  780084     MOV W4, W1
+000420  90014E     MOV [W14+8], W2
+000422  9001DE     MOV [W14+10], W3
+000424  400002     ADD W0, W2, W0
+000426  488083     ADDC W1, W3, W1
+000428  980740     MOV W0, [W14+8]
+00042A  980751     MOV W1, [W14+10]
+66:                        }
+67:                        // Apply output in input of next stage
+68:                        acc = acc >> 2*SHIFT;
+000438  90004E     MOV [W14+8], W0
+00043A  9000DE     MOV [W14+10], W1
+00043C  DE8C40     ASR W1, #0, W8
+00043E  DE8CCF     ASR W1, #15, W9
+000440  980748     MOV W8, [W14+8]
+000442  980759     MOV W9, [W14+10]
+69:                        input = stages[i].gain * acc;
+000444  78009E     MOV [W14], W1
+000446  200240     MOV #0x24, W0
+000448  B98800     MUL.SS W1, W0, W0
+00044A  780000     MOV W0, W0
+00044C  90089E     MOV [W14+18], W1
+00044E  408000     ADD W1, W0, W0
+000450  901090     MOV [W0+34], W1
+000452  901000     MOV [W0+32], W0
+000454  90014E     MOV [W14+8], W2
+000456  B99101     MUL.SS W2, W1, W2
+000458  780102     MOV W2, W2
+00045A  9001DE     MOV [W14+10], W3
+00045C  B99A00     MUL.SS W3, W0, W4
+00045E  780184     MOV W4, W3
+000460  410103     ADD W2, W3, W2
+000462  9001CE     MOV [W14+8], W3
+000464  B81800     MUL.UU W3, W0, W0
+000466  410101     ADD W2, W1, W2
+000468  780082     MOV W2, W1
+00046A  980760     MOV W0, [W14+12]
+00046C  980771     MOV W1, [W14+14]
+00046E  980760     MOV W0, [W14+12]
+000470  980771     MOV W1, [W14+14]
+70:                        input = input >> SHIFT;
+000472  90006E     MOV [W14+12], W0
+000474  9000FE     MOV [W14+14], W1
+000476  DD09C8     SL W1, #8, W3
+000478  DE0548     LSR W0, #8, W10
+00047A  71850A     IOR W3, W10, W10
+00047C  DE8DC8     ASR W1, #8, W11
+00047E  98076A     MOV W10, [W14+12]
+000480  98077B     MOV W11, [W14+14]
+71:                        // Shift the memory
+72:                        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
+000482  200010     MOV #0x1, W0
+000484  980710     MOV W0, [W14+2]
+000486  370018     BRA 0x4B8
+0004B2  90001E     MOV [W14+2], W0
+0004B4  E90000     DEC W0, W0
+0004B6  980710     MOV W0, [W14+2]
+0004B8  90001E     MOV [W14+2], W0
+0004BA  E00000     CP0 W0
+0004BC  3CFFE5     BRA GT, 0x488
+73:                        {
+74:                            stages[i].memory[j] = stages[i].memory[j-1];
+000488  78009E     MOV [W14], W1
+00048A  200240     MOV #0x24, W0
+00048C  B98800     MUL.SS W1, W0, W0
+00048E  780000     MOV W0, W0
+000490  90089E     MOV [W14+18], W1
+000492  408180     ADD W1, W0, W3
+000494  78009E     MOV [W14], W1
+000496  200240     MOV #0x24, W0
+000498  B98800     MUL.SS W1, W0, W0
+00049A  780000     MOV W0, W0
+00049C  90089E     MOV [W14+18], W1
+00049E  408080     ADD W1, W0, W1
+0004A0  90001E     MOV [W14+2], W0
+0004A2  E90000     DEC W0, W0
+0004A4  DD0042     SL W0, #2, W0
+0004A6  408000     ADD W1, W0, W0
+0004A8  BE0010     MOV.D [W0], W0
+0004AA  90011E     MOV [W14+2], W2
+0004AC  DD1142     SL W2, #2, W2
+0004AE  418102     ADD W3, W2, W2
+0004B0  BE8900     MOV.D W0, [W2]
+75:                        }
+76:                        stages[i].memory[0] = newMemory;
+0004BE  78009E     MOV [W14], W1
+0004C0  200240     MOV #0x24, W0
+0004C2  B98800     MUL.SS W1, W0, W0
+0004C4  780000     MOV W0, W0
+0004C6  90089E     MOV [W14+18], W1
+0004C8  408000     ADD W1, W0, W0
+0004CA  90012E     MOV [W14+4], W2
+0004CC  9001BE     MOV [W14+6], W3
+0004CE  BE8802     MOV.D W2, [W0]
+77:                    }
+78:                    *output = input;
+0004D8  90080E     MOV [W14+16], W0
+0004DA  90016E     MOV [W14+12], W2
+0004DC  9001FE     MOV [W14+14], W3
+0004DE  BE8802     MOV.D W2, [W0]
+79:                }
+0004E0  BE064F     MOV.D [--W15], W12
+0004E2  BE054F     MOV.D [--W15], W10
+0004E4  BE044F     MOV.D [--W15], W8
+0004E6  FA8000     ULNK
+0004E8  060000     RETURN
+80:                
+81:                int main(void)
+82:                {
+0004EA  FA012E     LNK #0x12E
+83:                    int i; // Iterator variable
+84:                	oscillatorInit();
+0004EC  07011A     RCALL oscillatorInit
+85:                    AD1PCFGL = 0xFFFF;
+0004EE  EB8000     SETM W0
+0004F0  881960     MOV W0, AD1PCFGL
+86:                    
+87:                    // Init ADC1 on AN0
+88:                    timer3Init();
+0004F2  07FEED     RCALL timer3Init
+89:                    adcTimerInit();
+0004F4  0700F1     RCALL adcTimerInit
+90:                    
+91:                #ifdef DEBUG2
+92:                    TRISAbits.TRISA1 = 0;
+0004F6  A922C0     BCLR TRISA, #1
+93:                #endif /* DEBUG2 */
+94:                    
+95:                #ifdef DEBUG3    
+96:                    // Init UART1
+97:                    UART1Init();
+98:                    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+99:                    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+100:                   char rxReg;
+101:                   int osc = 0;
+102:                   int oscCountSuper = 0;
+103:                   int dataOsc[3][1000];
+104:                   int iosc;
+105:               #endif /* DEBUG3 */
+106:                   
+107:                   // Init the passband filters [0]:900 / [1]:1100
+108:                   int32_t input;
+109:                   int32_t outputs[FILTER_COUNT];
+110:                   filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
+0004F8  4700EE     ADD W14, #0xE, W1
+0004FA  09008F     REPEAT #0x8F
+0004FC  EB1880     CLR [W1++]
+0004FE  201000     MOV #0x100, W0
+000500  200001     MOV #0x0, W1
+000502  980F30     MOV W0, [W14+22]
+000504  980F41     MOV W1, [W14+24]
+000506  2FF000     MOV #0xFF00, W0
+000508  2FFFF1     MOV #0xFFFF, W1
+00050A  980F70     MOV W0, [W14+30]
+00050C  981701     MOV W1, [W14+32]
+00050E  201000     MOV #0x100, W0
+000510  200001     MOV #0x0, W1
+000512  981710     MOV W0, [W14+34]
+000514  981721     MOV W1, [W14+36]
+000516  2FE330     MOV #0xFE33, W0
+000518  2FFFF1     MOV #0xFFFF, W1
+00051A  981730     MOV W0, [W14+38]
+00051C  981741     MOV W1, [W14+40]
+00051E  200FE0     MOV #0xFE, W0
+000520  200001     MOV #0x0, W1
+000522  981750     MOV W0, [W14+42]
+000524  981761     MOV W1, [W14+44]
+000526  200020     MOV #0x2, W0
+000528  200001     MOV #0x0, W1
+00052A  981770     MOV W0, [W14+46]
+00052C  981F01     MOV W1, [W14+48]
+00052E  201000     MOV #0x100, W0
+000530  200001     MOV #0x0, W1
+000532  981F50     MOV W0, [W14+58]
+000534  981F61     MOV W1, [W14+60]
+000536  2FF000     MOV #0xFF00, W0
+000538  2FFFF1     MOV #0xFFFF, W1
+00053A  982710     MOV W0, [W14+66]
+00053C  982721     MOV W1, [W14+68]
+00053E  201000     MOV #0x100, W0
+000540  200001     MOV #0x0, W1
+000542  982730     MOV W0, [W14+70]
+000544  982741     MOV W1, [W14+72]
+000546  2FE300     MOV #0xFE30, W0
+000548  2FFFF1     MOV #0xFFFF, W1
+00054A  982750     MOV W0, [W14+74]
+00054C  982761     MOV W1, [W14+76]
+00054E  200FE0     MOV #0xFE, W0
+000550  200001     MOV #0x0, W1
+000552  982770     MOV W0, [W14+78]
+000554  982F01     MOV W1, [W14+80]
+000556  200020     MOV #0x2, W0
+000558  200001     MOV #0x0, W1
+00055A  982F10     MOV W0, [W14+82]
+00055C  982F21     MOV W1, [W14+84]
+00055E  201000     MOV #0x100, W0
+000560  200001     MOV #0x0, W1
+000562  982F70     MOV W0, [W14+94]
+000564  983701     MOV W1, [W14+96]
+000566  2FF000     MOV #0xFF00, W0
+000568  2FFFF1     MOV #0xFFFF, W1
+00056A  983730     MOV W0, [W14+102]
+00056C  983741     MOV W1, [W14+104]
+00056E  201000     MOV #0x100, W0
+000570  200001     MOV #0x0, W1
+000572  983750     MOV W0, [W14+106]
+000574  983761     MOV W1, [W14+108]
+000576  2FE340     MOV #0xFE34, W0
+000578  2FFFF1     MOV #0xFFFF, W1
+00057A  983770     MOV W0, [W14+110]
+00057C  983F01     MOV W1, [W14+112]
+00057E  200FC0     MOV #0xFC, W0
+000580  200001     MOV #0x0, W1
+000582  983F10     MOV W0, [W14+114]
+000584  983F21     MOV W1, [W14+116]
+000586  200020     MOV #0x2, W0
+000588  200001     MOV #0x0, W1
+00058A  983F30     MOV W0, [W14+118]
+00058C  983F41     MOV W1, [W14+120]
+00058E  201000     MOV #0x100, W0
+000590  200001     MOV #0x0, W1
+000592  988710     MOV W0, [W14+130]
+000594  988721     MOV W1, [W14+132]
+000596  2FF000     MOV #0xFF00, W0
+000598  2FFFF1     MOV #0xFFFF, W1
+00059A  988750     MOV W0, [W14+138]
+00059C  988761     MOV W1, [W14+140]
+00059E  201000     MOV #0x100, W0
+0005A0  200001     MOV #0x0, W1
+0005A2  988770     MOV W0, [W14+142]
+0005A4  988F01     MOV W1, [W14+144]
+0005A6  2FE330     MOV #0xFE33, W0
+0005A8  2FFFF1     MOV #0xFFFF, W1
+0005AA  988F10     MOV W0, [W14+146]
+0005AC  988F21     MOV W1, [W14+148]
+0005AE  200FC0     MOV #0xFC, W0
+0005B0  200001     MOV #0x0, W1
+0005B2  988F30     MOV W0, [W14+150]
+0005B4  988F41     MOV W1, [W14+152]
+0005B6  200020     MOV #0x2, W0
+0005B8  200001     MOV #0x0, W1
+0005BA  988F50     MOV W0, [W14+154]
+0005BC  988F61     MOV W1, [W14+156]
+0005BE  201000     MOV #0x100, W0
+0005C0  200001     MOV #0x0, W1
+0005C2  989730     MOV W0, [W14+166]
+0005C4  989741     MOV W1, [W14+168]
+0005C6  2FF000     MOV #0xFF00, W0
+0005C8  2FFFF1     MOV #0xFFFF, W1
+0005CA  989770     MOV W0, [W14+174]
+0005CC  989F01     MOV W1, [W14+176]
+0005CE  201000     MOV #0x100, W0
+0005D0  200001     MOV #0x0, W1
+0005D2  989F10     MOV W0, [W14+178]
+0005D4  989F21     MOV W1, [W14+180]
+0005D6  2FE4B0     MOV #0xFE4B, W0
+0005D8  2FFFF1     MOV #0xFFFF, W1
+0005DA  989F30     MOV W0, [W14+182]
+0005DC  989F41     MOV W1, [W14+184]
+0005DE  200FD0     MOV #0xFD, W0
+0005E0  200001     MOV #0x0, W1
+0005E2  989F50     MOV W0, [W14+186]
+0005E4  989F61     MOV W1, [W14+188]
+0005E6  200020     MOV #0x2, W0
+0005E8  200001     MOV #0x0, W1
+0005EA  989F70     MOV W0, [W14+190]
+0005EC  98A701     MOV W1, [W14+192]
+0005EE  201000     MOV #0x100, W0
+0005F0  200001     MOV #0x0, W1
+0005F2  98A750     MOV W0, [W14+202]
+0005F4  98A761     MOV W1, [W14+204]
+0005F6  2FF000     MOV #0xFF00, W0
+0005F8  2FFFF1     MOV #0xFFFF, W1
+0005FA  98AF10     MOV W0, [W14+210]
+0005FC  98AF21     MOV W1, [W14+212]
+0005FE  201000     MOV #0x100, W0
+000600  200001     MOV #0x0, W1
+000602  98AF30     MOV W0, [W14+214]
+000604  98AF41     MOV W1, [W14+216]
+000606  2FE460     MOV #0xFE46, W0
+000608  2FFFF1     MOV #0xFFFF, W1
+00060A  98AF50     MOV W0, [W14+218]
+00060C  98AF61     MOV W1, [W14+220]
+00060E  200FE0     MOV #0xFE, W0
+000610  200001     MOV #0x0, W1
+000612  98AF70     MOV W0, [W14+222]
+000614  98B701     MOV W1, [W14+224]
+000616  200020     MOV #0x2, W0
+000618  200001     MOV #0x0, W1
+00061A  98B710     MOV W0, [W14+226]
+00061C  98B721     MOV W1, [W14+228]
+00061E  201000     MOV #0x100, W0
+000620  200001     MOV #0x0, W1
+000622  98B770     MOV W0, [W14+238]
+000624  98BF01     MOV W1, [W14+240]
+000626  2FF000     MOV #0xFF00, W0
+000628  2FFFF1     MOV #0xFFFF, W1
+00062A  98BF30     MOV W0, [W14+246]
+00062C  98BF41     MOV W1, [W14+248]
+00062E  201000     MOV #0x100, W0
+000630  200001     MOV #0x0, W1
+000632  98BF50     MOV W0, [W14+250]
+000634  98BF61     MOV W1, [W14+252]
+000636  2FE4C0     MOV #0xFE4C, W0
+000638  2FFFF1     MOV #0xFFFF, W1
+00063A  98BF70     MOV W0, [W14+254]
+00063C  990701     MOV W1, [W14+256]
+00063E  200FB0     MOV #0xFB, W0
+000640  200001     MOV #0x0, W1
+000642  990710     MOV W0, [W14+258]
+000644  990721     MOV W1, [W14+260]
+000646  200020     MOV #0x2, W0
+000648  200001     MOV #0x0, W1
+00064A  990730     MOV W0, [W14+262]
+00064C  990741     MOV W1, [W14+264]
+00064E  201000     MOV #0x100, W0
+000650  200001     MOV #0x0, W1
+000652  990F10     MOV W0, [W14+274]
+000654  990F21     MOV W1, [W14+276]
+000656  2FF000     MOV #0xFF00, W0
+000658  2FFFF1     MOV #0xFFFF, W1
+00065A  990F50     MOV W0, [W14+282]
+00065C  990F61     MOV W1, [W14+284]
+00065E  201000     MOV #0x100, W0
+000660  200001     MOV #0x0, W1
+000662  990F70     MOV W0, [W14+286]
+000664  991701     MOV W1, [W14+288]
+000666  2FE4A0     MOV #0xFE4A, W0
+000668  2FFFF1     MOV #0xFFFF, W1
+00066A  991710     MOV W0, [W14+290]
+00066C  991721     MOV W1, [W14+292]
+00066E  200FB0     MOV #0xFB, W0
+000670  200001     MOV #0x0, W1
+000672  991730     MOV W0, [W14+294]
+000674  991741     MOV W1, [W14+296]
+000676  200020     MOV #0x2, W0
+000678  200001     MOV #0x0, W1
+00067A  991750     MOV W0, [W14+298]
+00067C  991761     MOV W1, [W14+300]
+00067E  370001     BRA 0x682
+111:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8011571239155957*M,0.99343663965814499*M}, 0.0084342754131484891*M},
+112:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.8144890622013676*M,0.99365313679164347*M}, 0.0084342754131484891*M},
+113:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7968934937505234*M,0.98437870027614971*M}, 0.0083961616899833683*M},
+114:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.802504614864014*M,0.98459330636028497*M}, 0.0083961616899833683*M} },
+115:                         
+116:                       { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7072742575792748*M,0.99198489677340751*M}, 0.010305881103809989*M},
+117:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7268035972665099*M,0.9922402806273074*M}, 0.010305881103809989*M},
+118:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7035572899577904*M,0.98093595942427547*M}, 0.01024910202670197*M},
+119:                         {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
+120:                   };
+121:               	
+122:               	while(1) {
+123:               #ifdef DEBUG3
+124:                       if (U1STAbits.URXDA)  // A message is in the receiver buffer
+125:                       {
+126:                           rxReg = U1RXREG;
+127:                           if (rxReg == 's')
+128:                           {
+129:                               // send the samples to oscilloscope
+130:                               osc = 1;
+131:                           }
+132:                           else
+133:                           {
+134:                               U1TXREG = rxReg; // Echo test
+135:                           }
+136:                       }
+137:               #endif /* DEBUG3 */
+138:                       if (adcConversionFinished())
+000682  07003D     RCALL adcConversionFinished
+000684  E00000     CP0 W0
+000686  32FFFC     BRA Z, 0x680
+139:                       {
+140:               #ifdef DEBUG2
+141:                           LATAbits.LATA1 = 1;
+000688  A822C4     BSET LATA, #1
+142:               #endif /* DEBUG2 */
+143:                           // signal needs to be processed
+144:                           input = (int32_t)adcRead();
+00068A  070040     RCALL adcRead
+00068C  DE80CF     ASR W0, #15, W1
+00068E  980710     MOV W0, [W14+2]
+000690  980721     MOV W1, [W14+4]
+145:                           // Send signal to each passband filter
+146:                           for (i=0; i<FILTER_COUNT;i++)
+000692  EB0000     CLR W0
+000694  780F00     MOV W0, [W14]
+000696  370010     BRA 0x6B8
+0006B6  E80F1E     INC [W14], [W14]
+0006B8  78001E     MOV [W14], W0
+0006BA  500FE1     SUB W0, #0x1, [W15]
+0006BC  34FFED     BRA LE, 0x698
+147:                           {
+148:                               passband(input, &outputs[i], stages[i]);
+000698  47016E     ADD W14, #0xE, W2
+00069A  78009E     MOV [W14], W1
+00069C  200900     MOV #0x90, W0
+00069E  B98800     MUL.SS W1, W0, W0
+0006A0  780000     MOV W0, W0
+0006A2  410080     ADD W2, W0, W1
+0006A4  78001E     MOV [W14], W0
+0006A6  DD0042     SL W0, #2, W0
+0006A8  470166     ADD W14, #0x6, W2
+0006AA  410000     ADD W2, W0, W0
+0006AC  780181     MOV W1, W3
+0006AE  780100     MOV W0, W2
+0006B0  90001E     MOV [W14+2], W0
+0006B2  9000AE     MOV [W14+4], W1
+0006B4  07FE24     RCALL passband
+149:                           }
+150:               #ifdef DEBUG3
+151:                           if (osc == 1)
+152:                           {
+153:                               dataOsc[0][oscCountSuper] = input;
+154:                               dataOsc[1][oscCountSuper] = outputs[0];
+155:                               dataOsc[2][oscCountSuper] = outputs[1];
+156:                               oscCountSuper++;
+157:                               if (oscCountSuper >= 1000)
+158:                               {
+159:                                   osc = 2;
+160:                               }
+161:                           }
+162:                           if (osc == 2)
+163:                           {
+164:                               for (iosc=0; iosc<1000; iosc++)
+165:                               {
+166:                                   U1TXREG = dataOsc[0][iosc]/4;
+167:                                   U1TXREG = dataOsc[1][iosc]/4;
+168:                                   U1TXREG = dataOsc[2][iosc]/4;
+169:                                   __delay_ms(10);
+170:                               }
+171:                           }
+172:               #endif /* DEBUG3 */
+173:               #ifdef DEBUG
+174:                           /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
+175:                           //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
+176:                           d_out[0][0] = outputs[0];
+177:                           //d_out[1][0] = outputs[1];
+178:                           d_max[0] = 0;
+179:                           //d_max[1] = 0;
+180:                           for (d_i=0;d_i<14; d_i++)
+181:                           {
+182:                               if (d_out[0][d_i] > d_max[0])
+183:                               {
+184:                                   d_max[0] = d_out[0][d_i];
+185:                               }
+186:                               /*if (d_out[1][d_i] > d_max[1])
+187:                               {
+188:                                   d_max[1] = d_out[1][d_i];
+189:                               }*/
+190:                           //}
+191:                           if (d_max[0] < outputs[0])
+0006BE  208000     MOV #0x800, W0
+0006C0  BE0110     MOV.D [W0], W2
+0006C2  90003E     MOV [W14+6], W0
+0006C4  9000CE     MOV [W14+8], W1
+0006C6  510F80     SUB W2, W0, [W15]
+0006C8  598F81     SUBB W3, W1, [W15]
+0006CA  3D0004     BRA GE, 0x6D4
+192:                           {
+193:                               d_max[0] = outputs[0];
+0006CC  90003E     MOV [W14+6], W0
+0006CE  9000CE     MOV [W14+8], W1
+0006D0  208002     MOV #0x800, W2
+0006D2  BE8900     MOV.D W0, [W2]
+194:                           }
+195:               #endif /* DEBUG */
+196:               #ifdef DEBUG2
+197:                           LATAbits.LATA1 = 0;
+0006D4  A922C4     BCLR LATA, #1
+198:               #endif /* DEBUG2 */
+199:                       }
+200:               	}
+000680  000000     NOP
+0006D6  37FFD5     BRA 0x682
+201:               }
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/init.c  ----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 //  BITS DE CONFIGURATION
+4:                 ///////////////////////////////////////////////////////////////////////////////
+5:                 // disables the JTAG to prevent conflicts with TRISA
+6:                 _FICD(ICS_PGD1 & JTAGEN_OFF);
+7:                 
+8:                 // disables the watchdog
+9:                 _FWDT(FWDTEN_OFF);
+10:                
+11:                // The dsPIC will be clocked by the primary oscillator with a 10MHz crystal.
+12:                // We want to use the PLL to obtain Fosc = 80MHz ( <=> 40MIPS ).
+13:                // Problem : with a 10MHz crystal, PLL constraints are not met with the
+14:                // default parameter.
+15:                // Solution :
+16:                //	- boot using the internal FRC oscillator as clock source,
+17:                //	- set the right PLL parameters to obtain Fosc = 80MHz, without violating
+18:                //	  the PLL constraints,
+19:                //	- switch the clock source to the PLL
+20:                //	- wait for the end of the clock switch
+21:                //
+22:                // Select internal FRC oscillator as clock source
+23:                _FOSCSEL(FNOSC_FRC);
+24:                // enables clock switching and configure the primary oscillator for a 10MHz crystal
+25:                _FOSC(FCKSM_CSECMD & OSCIOFNC_OFF & POSCMD_XT);
+26:                
+27:                
+28:                void oscillatorInit(void) {
+000722  FA0000     LNK #0x0
+29:                    PLLFBD = 30; // M=32
+000724  2001E0     MOV #0x1E, W0
+000726  883A30     MOV W0, PLLFBD
+30:                    CLKDIVbits.PLLPOST = 0; // N1=2
+000728  803A21     MOV CLKDIV, W1
+00072A  2FF3F0     MOV #0xFF3F, W0
+00072C  608000     AND W1, W0, W0
+00072E  883A20     MOV W0, CLKDIV
+31:                    CLKDIVbits.PLLPRE = 0; // N2=2
+000730  803A21     MOV CLKDIV, W1
+000732  2FFE00     MOV #0xFFE0, W0
+000734  608000     AND W1, W0, W0
+000736  883A20     MOV W0, CLKDIV
+32:                    __builtin_write_OSCCONH( 3 );
+000738  200032     MOV #0x3, W2
+00073A  200780     MOV #0x78, W0
+00073C  2009A1     MOV #0x9A, W1
+00073E  207433     MOV #0x743, W3
+000740  784980     MOV.B W0, [W3]
+000742  784981     MOV.B W1, [W3]
+000744  784982     MOV.B W2, [W3]
+33:                    __builtin_write_OSCCONL( 1 );
+000746  200012     MOV #0x1, W2
+000748  200460     MOV #0x46, W0
+00074A  200571     MOV #0x57, W1
+00074C  207423     MOV #0x742, W3
+00074E  784980     MOV.B W0, [W3]
+000750  784981     MOV.B W1, [W3]
+000752  784982     MOV.B W2, [W3]
+34:                    // Wait for Clock switch to occur
+35:                    while (OSCCONbits.COSC != 0b011);
+000754  000000     NOP
+000756  803A11     MOV OSCCON, W1
+000758  270000     MOV #0x7000, W0
+00075A  608080     AND W1, W0, W1
+00075C  230000     MOV #0x3000, W0
+00075E  508F80     SUB W1, W0, [W15]
+000760  3AFFFA     BRA NZ, 0x756
+36:                }
+000762  FA8000     ULNK
+000764  060000     RETURN
+---  C:/Users/Labo/MPLABXProjects/ELECH309/Labo3/project/adc.c  -----------------------------------------
+1:                 #include <xc.h>
+2:                 
+3:                 
+4:                 void adcTimerInit(void)
+5:                 {
+0006D8  FA0000     LNK #0x0
+6:                     AD1CON1bits.AD12B = 0;  // Convertisseur sur 10 bits
+0006DA  A94321     BCLR 0x321, #2
+7:                     AD1CON3bits.ADCS = 5;   // Clock de l'adc
+0006DC  B3C050     MOV.B #0x5, W0
+0006DE  B7E324     MOV.B WREG, AD1CON3
+8:                     AD1CON1bits.ASAM = 1;   // auto sample activé
+0006E0  A84320     BSET AD1CON1, #2
+9:                     AD1CSSLbits.CSS0 = 1;   // Le convertisseur doit scanner la patte AN0
+0006E2  A80330     BSET AD1CSSL, #0
+10:                    AD1PCFGLbits.PCFG0 = 0; // AN0 en mode analogique
+0006E4  A9032C     BCLR AD1PCFGL, #0
+11:                    AD1CON1bits.SSRC = 2;   // ADC activé par le débordement du Timer3
+0006E6  801901     MOV AD1CON1, W1
+0006E8  2FF1F0     MOV #0xFF1F, W0
+0006EA  608000     AND W1, W0, W0
+0006EC  A06000     BSET W0, #6
+0006EE  881900     MOV W0, AD1CON1
+12:                    AD1CON1bits.ADON = 1;   // l'ADC est actif
+0006F0  A8E321     BSET 0x321, #7
+13:                }
+0006F2  FA8000     ULNK
+0006F4  060000     RETURN
+14:                
+15:                void adcPollingStart(void)
+16:                {
+0006F6  FA0000     LNK #0x0
+17:                    AD1CON1bits.SAMP = 0;
+0006F8  A92320     BCLR AD1CON1, #1
+18:                }
+0006FA  FA8000     ULNK
+0006FC  060000     RETURN
+19:                
+20:                
+21:                int adcConversionFinished(void)
+22:                {
+0006FE  FA0000     LNK #0x0
+23:                    return (AD1CON1bits.DONE);
+000700  801900     MOV AD1CON1, W0
+000702  784000     MOV.B W0, W0
+000704  604061     AND.B W0, #0x1, W0
+000706  FB8000     ZE W0, W0
+24:                }
+000708  FA8000     ULNK
+00070A  060000     RETURN
+25:                
+26:                
+27:                int adcRead(void)
+28:                {
+00070C  FA0000     LNK #0x0
+29:                    if (AD1CON1bits.DONE) {
+00070E  801900     MOV AD1CON1, W0
+000710  600061     AND W0, #0x1, W0
+000712  E00000     CP0 W0
+000714  320003     BRA Z, 0x71C
+30:                        AD1CON1bits.DONE = 0;
+000716  A90320     BCLR AD1CON1, #0
+31:                        return ADC1BUF0;
+000718  801800     MOV ADC1BUF0, W0
+00071A  370001     BRA 0x71E
+32:                    } else {
+33:                        return (-32768);
+00071C  280000     MOV #0x8000, W0
+34:                    }
+35:                }
+00071E  FA8000     ULNK
+000720  060000     RETURN
