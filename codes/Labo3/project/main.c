@@ -3,30 +3,30 @@
 #include <xc.h>
 #include <string.h> // for memmove()
 
-#define FILTER_STAGE_COUNT 3
+#define FILTER_STAGE_COUNT 4
 #define FILTER_STAGE_ORDER 2
 #define FILTER_COUNT 2
 
-// Multiplier for float to long
-#define SHIFT 10
-#define M (long)(1 << SHIFT)
+// Multiplier for float to int32_t
+#define SHIFT 8
+#define M (int32_t)(1 << SHIFT)
 
-//#define DEBUG
+#define DEBUG
 #define DEBUG2
-#define DEBUG3
+//#define DEBUG3
 #include <libpic30.h>
 
 #ifdef DEBUG
-    long d_out[2][15];
-    long d_max[2];
+    int32_t d_out[2][14];
+    int32_t d_max[2];
     int d_i;
 #endif /* DEBUG */
 
 typedef struct filterStageData_s {
-    long memory[FILTER_STAGE_ORDER];
-    long numCoeff[FILTER_STAGE_ORDER + 1];
-    long denCoeff[FILTER_STAGE_ORDER + 1];
-    long gain;
+    int32_t memory[FILTER_STAGE_ORDER];
+    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+    int32_t gain;
 } filterStageData_s;
 
 void timer3Init()
@@ -47,28 +47,32 @@ void UART1Init()
     U1STAbits.UTXEN = 1;  // activate transmission
 }
 
-void passband(long input, long* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
     int i,j; // Iterator variables
-    long newMemory, acc; // Accumulator
+    int32_t newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        newMemory = stages[i].denCoeff[0] * input;
+        newMemory = stages[i].denCoeff[0] * input * M;
         for (j=0;j<FILTER_STAGE_ORDER; j++)
         {
             newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
         }
+        newMemory = newMemory >> SHIFT;
         acc = stages[i].numCoeff[0] * newMemory;
         for (j=0;j<FILTER_STAGE_ORDER; j++)
         {
             acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
         }
         // Apply output in input of next stage
-        acc = acc/(M*M);
+        acc = acc >> 2*SHIFT;
         input = stages[i].gain * acc;
-        input = input/M;
+        input = input >> SHIFT;
         // Shift the memory
-        memmove(&stages[i].memory[1], &stages[i].memory[0], (FILTER_STAGE_ORDER - 1) * sizeof(stages[i].memory[0]));
+        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
+        {
+            stages[i].memory[j] = stages[i].memory[j-1];
+        }
         stages[i].memory[0] = newMemory;
     }
     *output = input;
@@ -79,16 +83,16 @@ int main(void)
     int i; // Iterator variable
 	oscillatorInit();
     AD1PCFGL = 0xFFFF;
-
+    
     // Init ADC1 on AN0
     timer3Init();
     adcTimerInit();
-
+    
 #ifdef DEBUG2
     TRISAbits.TRISA1 = 0;
 #endif /* DEBUG2 */
-
-#ifdef DEBUG3
+    
+#ifdef DEBUG3    
     // Init UART1
     UART1Init();
     RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
@@ -99,20 +103,22 @@ int main(void)
     int dataOsc[3][1000];
     int iosc;
 #endif /* DEBUG3 */
-
+    
     // Init the passband filters [0]:900 / [1]:1100
-    long input;
-    long outputs[FILTER_COUNT];
+    int32_t input;
+    int32_t outputs[FILTER_COUNT];
     filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
-        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7964920647337039*M,0.98943434670312946*M}, 0.010365843540149258*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8119895806833997*M,0.98983485086720957*M}, 0.010365843540149258*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7950820896974879*M,0.9793743827745226*M}, 0.010312808612738712*M} },
-
-        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7015520788691365*M,0.98710428574592357*M}, 0.012660500249294437*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7241964095321776*M,0.98757631173112703*M}, 0.012660500249294437*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.702303529278439*M,0.97483677644146227*M}, 0.012581611779268901*M} }
+        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8011571239155957*M,0.99343663965814499*M}, 0.0084342754131484891*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8144890622013676*M,0.99365313679164347*M}, 0.0084342754131484891*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7968934937505234*M,0.98437870027614971*M}, 0.0083961616899833683*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.802504614864014*M,0.98459330636028497*M}, 0.0083961616899833683*M} },
+          
+        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7072742575792748*M,0.99198489677340751*M}, 0.010305881103809989*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7268035972665099*M,0.9922402806273074*M}, 0.010305881103809989*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7035572899577904*M,0.98093595942427547*M}, 0.01024910202670197*M},
+          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
     };
-
+	
 	while(1) {
 #ifdef DEBUG3
         if (U1STAbits.URXDA)  // A message is in the receiver buffer
@@ -135,7 +141,7 @@ int main(void)
             LATAbits.LATA1 = 1;
 #endif /* DEBUG2 */
             // signal needs to be processed
-            input = (long)adcRead();
+            input = (int32_t)adcRead();
             // Send signal to each passband filter
             for (i=0; i<FILTER_COUNT;i++)
             {
@@ -165,13 +171,13 @@ int main(void)
             }
 #endif /* DEBUG3 */
 #ifdef DEBUG
-            memmove(&d_out[0][1], &d_out[0][0], 14 * sizeof(long));
-            //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(long));
+            /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
+            //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
             d_out[0][0] = outputs[0];
             //d_out[1][0] = outputs[1];
             d_max[0] = 0;
             //d_max[1] = 0;
-            for (d_i=0;d_i<15; d_i++)
+            for (d_i=0;d_i<14; d_i++)
             {
                 if (d_out[0][d_i] > d_max[0])
                 {
@@ -181,6 +187,10 @@ int main(void)
                 {
                     d_max[1] = d_out[1][d_i];
                 }*/
+            //}
+            if (d_max[0] < outputs[0])
+            {
+                d_max[0] = outputs[0];
             }
 #endif /* DEBUG */
 #ifdef DEBUG2

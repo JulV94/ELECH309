@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1522252721 source:/home/julien/git/ELECH309/passband design/Test code/main.c
+	<stdio.h>
+	<stdlib.h>
+	<math.h>
+
