@@ -8,8 +8,8 @@
 #endif
 #define ACCEL 0.1
 #define MAX_SPEED 0.4
-#define KP_POS 8
-#define KP_ROT 8
+#define KP_POS 8.0/20
+#define KP_ROT 0.03/20
 
 void encodersInit(){
     RPINR14bits.QEA1R = 19;//left encoder
@@ -102,18 +102,18 @@ void moveForward(float d, float speed){
             IFS0bits.T1IF = 0;
             cnt+=0.01; //+10ms
             cmdPos = posReg(genReference(d, speed*MAX_SPEED,cnt));
-            cmdRot= rotReg(0);
-            cmd1=cmdPos + cmdRot;
-            cmd2 = cmdPos - cmdRot;
+            cmdRot= 0;//rotReg(0);
+            cmd1 = 0.15 + cmdPos + cmdRot;
+            cmd2 = 0.15 - (cmdPos - cmdRot);
             
-            if(cmd2>0.15){
-                cmd2=0.145;
+            if(cmd2>0.2){
+                cmd2=0.2;
             }
             else if(cmd2 <0.1){
                 cmd2 = 0.1;
             }
-            if(cmd1<0.15){
-                cmd1=0.155;
+            if(cmd1<0.1){
+                cmd1=0.1;
             }
             else if(cmd1 >0.2){
                 cmd1 = 0.2;
@@ -220,7 +220,7 @@ int main(void)
     int dc; //rapport cyclique = fraction de la tension d'alimentation
     int Kp = 1/360;
     float rapportTemp; //rapport de temps Ton/T du pulse de commande moteur
-    moveForward(1, 1);
+    moveForward(1, 0.5);
 
 	while(1) {
         //asm("nop");
