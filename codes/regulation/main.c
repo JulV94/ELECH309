@@ -1,6 +1,7 @@
 #include "init.h"
 #include "adc.h"
 #include <xc.h>
+#include "math.h"
 #define D 0.1016f
 #ifndef M_PI
     #define M_PI 3.141592653f
@@ -51,7 +52,7 @@ float rotReg(float reference)
 
 float genPosReference(float d, float speed, int dt)
 {
-  if (speed*speed/ACCEL > d)
+  if (speed*speed/ACCEL < d)
   {
     // Trapèze
     if (dt < speed/ACCEL)
@@ -67,11 +68,24 @@ float genPosReference(float d, float speed, int dt)
     else
     {
       // Deceleration part
+      float newDt = dt - d/speed;
+      return d - speed*speed/(2*ACCEL) + speed*new_dt - ACCEL*new_dt*new_dt/2;
     }
   }
   else
   {
     // Triangle
+    if (dt*dt < d/ACCEL)
+    {
+      // Acceleration part
+      return a*dt*dt/2
+    }
+    else
+    {
+      // Deceleration part
+      float newDt = dt - sqrt(d/ACCEL);
+      return d/2 + ACCEL*sqrt(d/ACCEL)*new_dt - ACCEL*new_dt*new_dt/2;
+    }
   }
 }
 
