@@ -50,9 +50,9 @@ float rotReg(float reference)
     return KP_ROT*(reference - ((int)POS1CNT - (int)POS2CNT));
 }
 
-float genPosReference(float d, float speed, int dt)
+float genReference(float pos, float speed, float dt)
 {
-  if (speed*speed/ACCEL < d)
+  if (speed*speed/ACCEL < pos)
   {
     // TrapÃ¨ze
     if (dt < speed/ACCEL)
@@ -60,7 +60,7 @@ float genPosReference(float d, float speed, int dt)
       // Acceleration part
       return ACCEL*dt*dt/2;
     }
-    else if (dt < d/speed)
+    else if (dt < pos/speed)
     {
       // Flat speed part
       return speed*dt - speed*speed/(2*ACCEL);
@@ -68,34 +68,66 @@ float genPosReference(float d, float speed, int dt)
     else
     {
       // Deceleration part
-      float newDt = dt - d/speed;
-      return d - speed*speed/(2*ACCEL) + speed*new_dt - ACCEL*new_dt*new_dt/2;
+      float newDt = dt - pos/speed;
+      return pos - speed*speed/(2*ACCEL) + speed*newDt - ACCEL*newDt*newDt/2;
     }
   }
   else
   {
     // Triangle
-    if (dt*dt < d/ACCEL)
+    if (dt*dt < pos/ACCEL)
     {
       // Acceleration part
-      return a*dt*dt/2
+      return ACCEL*dt*dt/2;
     }
     else
     {
       // Deceleration part
-      float newDt = dt - sqrt(d/ACCEL);
-      return d/2 + ACCEL*sqrt(d/ACCEL)*new_dt - ACCEL*new_dt*new_dt/2;
+      float newDt = dt - sqrt(pos/ACCEL);
+      return pos/2 + ACCEL*sqrt(pos/ACCEL)*newDt - ACCEL*newDt*newDt/2;
     }
   }
 }
 
-float genRotReference(float theta, float angSpeed)
-{
 
-}
+
+
 
 void moveForward(float d, float speed){
-    int phiRef = 360*d/(M_PI*D);
+    float cmdPos, cmdRot, cmd1, cmd2;
+    float cnt = 0; //compteur temps
+    T1CONbits.TON =1; //activation timer
+    do {
+        if(IFS0bits.T1IF){
+            IFS0bits.T1IF = 0;
+            cnt+=0.01; //+10ms
+            cmdPos = posReg(genReference(d, speed*MAX_SPEED,cnt));
+            cmdRot= rotReg(0);
+            cmd1=cmdPos + cmdRot;
+            cmd2 = cmdPos - cmdRot;
+            
+            if(cmd2>0.15){
+                cmd2=0.145;
+            }
+            else if(cmd2 <0.1){
+                cmd2 = 0.1;
+            }
+            if(cmd1<0.15){
+                cmd1=0.155;
+            }
+            else if(cmd1 >0.2){
+                cmd1 = 0.2;
+            }
+            OC1RS = cmd1*PR2;
+            OC2RS = cmd2*PR2;
+        }
+    }while((((int)POS1CNT + (int)POS2CNT)*M_PI*D/720) < d);
+    T1CONbits.TON =0;
+    OC1RS=0;
+    OC2RS=0;
+    
+    
+    /*int phiRef = 360*d/(M_PI*D);
     float realSpeed = 0;
     float rapportTemp[2];
     float reg2;
@@ -158,6 +190,7 @@ void moveForward(float d, float speed){
     asm("nop");
     asm("nop");
     asm("nop");
+     */
 }
 
 
@@ -165,9 +198,13 @@ int main(void)
 {
     oscillatorInit();
     encodersInit();
+    
+    //Timer 1 at 100Hz frequence de régulation
+    PR1= 50000;
+    T1CONbits.TCKPS = 0b01;
 
 
-    // Timer 2 at 10ms
+    // Timer 2 at 10ms PWM moteur
     PR2 = 50000; // nb d'instructions pour une pï¿½riode de 10ms(T) 400000/8
     T2CONbits.TCKPS = 0b01; // Prescaler at 8
     T2CONbits.TON = 1; // Activate 16 bits timer
