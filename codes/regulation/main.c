@@ -3,15 +3,17 @@
 #include <xc.h>
 #include "math.h"
 #define D 0.1016f
+#define D2 0.22 // TODO to be defined
 #ifndef M_PI
     #define M_PI 3.141592653f
 #endif
-#define ACCEL 0.1
+#define ACCEL 0.5
 #define MAX_SPEED 0.4
+#define MAX_ANG_SPEED MAX_SPEED*180/(D2*M_PI)
 #define KP_POS 8.0/20
 #define KP_ROT 0.03/20
 
-void encodersInit(){
+void encodersInit() {
     RPINR14bits.QEA1R = 19;//left encoder
     RPINR14bits.QEB1R = 20;
 
@@ -40,18 +42,15 @@ void motorsInit() {
     OC2CONbits.OCM = 0b110; //fault pin disabled
 }
 
-float posReg(float reference)
-{
+float posReg(float reference) {
     return KP_POS*(reference - (((int)POS1CNT + (int)POS2CNT)*M_PI*D/720));
 }
 
-float rotReg(float reference)
-{
+float rotReg(float reference) {
     return KP_ROT*(reference - ((int)POS1CNT - (int)POS2CNT));
 }
 
-float genReference(float pos, float speed, float dt)
-{
+float genReference(float pos, float speed, float dt) {
   if (speed*speed/ACCEL < pos)
   {
     // TrapÃ¨ze
@@ -89,118 +88,73 @@ float genReference(float pos, float speed, float dt)
   }
 }
 
+void sendMotorCmd(float cmd1, float cmd2) {
+  if (cmd1 < 0.1)
+  {
+      cmd1 = 0.1;
+  }
+  else if (cmd1 > 0.2)
+  {
+      cmd1 = 0.2;
+  }
 
+  if (cmd2 > 0.2)
+  {
+      cmd2 = 0.2;
+  }
+  else if (cmd2 < 0.1)
+  {
+      cmd2 = 0.1;
+  }
 
-
-
-void moveForward(float d, float speed){
-    float cmdPos, cmdRot, cmd1, cmd2;
-    float cnt = 0; //compteur temps
-    T1CONbits.TON =1; //activation timer
-    do {
-        if(IFS0bits.T1IF){
-            IFS0bits.T1IF = 0;
-            cnt+=0.01; //+10ms
-            cmdPos = posReg(genReference(d, speed*MAX_SPEED,cnt));
-            cmdRot= 0;//rotReg(0);
-            cmd1 = 0.15 + cmdPos + cmdRot;
-            cmd2 = 0.15 - (cmdPos - cmdRot);
-            
-            if(cmd2>0.2){
-                cmd2=0.2;
-            }
-            else if(cmd2 <0.1){
-                cmd2 = 0.1;
-            }
-            if(cmd1<0.1){
-                cmd1=0.1;
-            }
-            else if(cmd1 >0.2){
-                cmd1 = 0.2;
-            }
-            OC1RS = cmd1*PR2;
-            OC2RS = cmd2*PR2;
-        }
-    }while((((int)POS1CNT + (int)POS2CNT)*M_PI*D/720) < d);
-    T1CONbits.TON =0;
-    OC1RS=0;
-    OC2RS=0;
-    
-    
-    /*int phiRef = 360*d/(M_PI*D);
-    float realSpeed = 0;
-    float rapportTemp[2];
-    float reg2;
-    while (realSpeed < speed && (int)POS1CNT < phiRef/2)
-    {
-        rapportTemp[0] = (1.5+realSpeed*0.5)/10;
-        rapportTemp[1] = (1.5-realSpeed*0.5)/10;
-        realSpeed = (int)POS1CNT * ACCEL*M_PI*D/(360*MAX_SPEED*realSpeed);
-        reg2 = (rapportTemp[1]-KP_STRAIGHT*((int)POS1CNT - (int)POS2CNT));
-        if (reg2 > 0.15)
-        {
-            reg2 = 0.145;
-        }
-        else if (reg2 < 0.1)
-        {
-            reg2 = 0.1;
-        }
-        OC2RS = reg2*PR2;
-        OC1RS = rapportTemp[0]*PR2;
-    }
-    rapportTemp[0] = (1.5+speed*0.5)/10;
-    OC1RS = rapportTemp[0]*PR2;
-    rapportTemp[1] = (1.5-speed*0.5)/10;
-    while ((int)POS1CNT <= phiRef-(MAX_SPEED*MAX_SPEED*speed*speed/ACCEL))
-    {
-        reg2 = (rapportTemp[1]-KP_STRAIGHT*((int)POS1CNT - (int)POS2CNT));
-        if (reg2 > 0.15)
-        {
-            reg2 = 0.145;
-        }
-        else if (reg2 < 0.1)
-        {
-            reg2 = 0.1;
-        }
-        OC2RS = reg2*PR2;
-    }
-    if (realSpeed > speed)
-    {
-        realSpeed = speed;
-    }
-    while ((int)POS1CNT <= phiRef)
-    {
-        rapportTemp[0] = (1.5+realSpeed*0.5)/10;
-        rapportTemp[1] = (1.5-realSpeed*0.5)/10;
-        realSpeed = (phiRef - (int)POS1CNT) * ACCEL*M_PI*D/(360*MAX_SPEED*realSpeed);
-        reg2 = (rapportTemp[1]-KP_STRAIGHT*((int)POS1CNT - (int)POS2CNT));
-        if (reg2 > 0.15)
-        {
-            reg2 = 0.145;
-        }
-        else if (reg2 < 0.1)
-        {
-            reg2 = 0.1;
-        }
-        OC2RS = reg2*PR2;
-        OC1RS = rapportTemp[0]*PR2;
-    }
-    OC1RS = 0;
-    OC2RS = 0;
-    asm("nop");
-    asm("nop");
-    asm("nop");
-     */
+  OC1RS = cmd1*PR2;
+  OC2RS = cmd2*PR2;
 }
 
+void translate(float d, float speed) {
+    float cmdPos, cmdRot;
+    float cnt = 0; //compteur temps
+    T1CONbits.TON = 1; //activation timer
+    do {
+        if (IFS0bits.T1IF)
+        {
+            IFS0bits.T1IF = 0;
+            cnt += 0.01; //+10ms
+            cmdPos = posReg(genReference(d, speed*MAX_SPEED,cnt));
+            cmdRot = 0;//rotReg(0);
+            sendMotorCmd(0.15 + cmdPos + cmdRot, 0.15 - (cmdPos - cmdRot));
+        }
+    }while((((int)POS1CNT + (int)POS2CNT)*M_PI*D/720) < d);
+    T1CONbits.TON = 0;
+    OC1RS = 0;
+    OC2RS = 0;
+}
 
-int main(void)
-{
+void rotate(float theta, float angSpeed) {
+    float cmdPos, cmdRot;
+    float cnt = 0; //compteur temps
+    T1CONbits.TON = 1; //activation timer
+    do {
+        if (IFS0bits.T1IF)
+        {
+            IFS0bits.T1IF = 0;
+            cnt += 0.01; //+10ms
+            cmdPos = 0;//posReg(0);
+            cmdRot = rotReg(genReference(theta, angSpeed*MAX_ANG_SPEED,cnt));
+            sendMotorCmd(0.15 + cmdPos + cmdRot, 0.15 - (cmdPos - cmdRot));
+        }
+    }while(((int)POS1CNT - (int)POS2CNT) < theta);
+    T1CONbits.TON = 0;
+    OC1RS = 0;
+    OC2RS = 0;
+}
+
+int main(void) {
     oscillatorInit();
     encodersInit();
-    
-    //Timer 1 at 100Hz frequence de régulation
-    PR1= 50000;
+
+    //Timer 1 at 100Hz frequence de rï¿½gulation
+    PR1 = 50000;
     T1CONbits.TCKPS = 0b01;
 
 
@@ -212,21 +166,10 @@ int main(void)
 
     motorsInit();
 
-    int phi1Mes = POS1CNT; //position angulaire en degrï¿½sï¿½, fournie par l'encodeur
-    int phi2Mes = POS2CNT; // 360 impulsions = 360ï¿½ en mode x4
+    translate(1, 0.5);
 
-    int phiRef = 360; // position angulaire de rï¿½fï¿½rence
-    int err; // erreur de position
-    int dc; //rapport cyclique = fraction de la tension d'alimentation
-    int Kp = 1/360;
-    float rapportTemp; //rapport de temps Ton/T du pulse de commande moteur
-    moveForward(1, 0.5);
-
-	while(1) {
-        //asm("nop");
-
-
-
-
+	while(1)
+  {
+        // Loop code
 	}
 }

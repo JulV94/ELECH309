@@ -30,7 +30,7 @@ def genPosReference(a, d, speed, dt):
 x = []
 y = []
 
-d = 0.3
+d = 0.6
 i = 0
 
 pos = genPosReference(0.5, d, 0.4, i)
