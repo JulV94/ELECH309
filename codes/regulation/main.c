@@ -42,6 +42,29 @@ void motorsInit() {
     OC2CONbits.OCM = 0b110; //fault pin disabled
 }
 
+void timersInit() {
+  //Timer 1 at 100Hz frequence de r�gulation
+  PR1 = 50000;
+  T1CONbits.TCKPS = 0b01;
+
+  // Timer 2 at 10ms PWM moteur
+  PR2 = 50000; // nb d'instructions pour une p�riode de 10ms(T) 400000/8
+  T2CONbits.TCKPS = 0b01; // Prescaler at 8
+  T2CONbits.TON = 1; // Activate 16 bits timer
+  //pas besoin d'interruption
+}
+
+void UART1Init()
+{
+    U1BRG = 21;  // baudrate of 115200
+    U1MODEbits.PDSEL = 0; // 8 bits no parity
+    U1MODEbits.STSEL = 0; // 1 stop bit
+    U1MODEbits.URXINV = 0; // Idle state is high state
+    U1MODEbits.BRGH = 0; // Standard mode (not high baudrate)
+    U1MODEbits.UARTEN = 1; // Activate UART
+    U1STAbits.UTXEN = 1;  // activate transmission
+}
+
 float posReg(float reference) {
     return KP_POS*(reference - (((int)POS1CNT + (int)POS2CNT)*M_PI*D/720));
 }
@@ -151,25 +174,24 @@ void rotate(float theta, float angSpeed) {
 
 int main(void) {
     oscillatorInit();
+    AD1PCFGL = 0xFFFF; // Necessary for the UART to work ??
     encodersInit();
-
-    //Timer 1 at 100Hz frequence de r�gulation
-    PR1 = 50000;
-    T1CONbits.TCKPS = 0b01;
-
-
-    // Timer 2 at 10ms PWM moteur
-    PR2 = 50000; // nb d'instructions pour une p�riode de 10ms(T) 400000/8
-    T2CONbits.TCKPS = 0b01; // Prescaler at 8
-    T2CONbits.TON = 1; // Activate 16 bits timer
-    //pas besoin d'interruption
-
+    timersInit();
     motorsInit();
+    UART1Init();
 
+    // TODO remove that
     translate(1, 0.5);
 
-	while(1)
-  {
-        // Loop code
-	}
+    char rxReg;
+
+    while(1)
+    {
+        if (U1STAbits.URXDA)
+        {
+            rxReg = U1RXREG;
+            // TODO process data received
+            // TODO perform asked task
+        }
+	  }
 }
