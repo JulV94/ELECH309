@@ -7,11 +7,12 @@
 #ifndef M_PI
     #define M_PI 3.141592653f
 #endif
-#define ACCEL 0.5
+#define ACCEL 0.3
 #define MAX_SPEED 0.4
 #define MAX_ANG_SPEED MAX_SPEED*180/(D2*M_PI)
 #define KP_POS 8.0/20
-#define KP_ROT 0.03/20
+#define KP_ROT 0.03/(20*2)
+#define TOL -0.001
 
 void encodersInit() {
     RPINR14bits.QEA1R = 19;//left encoder
@@ -33,12 +34,12 @@ void motorsInit() {
 
     //Output compare 1
     OC1CONbits.OCTSEL = 0; //selectionne le timer 2
-    OC1RS = 0*PR2; // nb d'instructions � l'�tat haut (Ton) = (Ton/T)*PR2
+    OC1R = 0*PR2; // nb d'instructions � l'�tat haut (Ton) = (Ton/T)*PR2
     OC1CONbits.OCM = 0b110; //fault pin disabled
 
     //Output compare 2
     OC2CONbits.OCTSEL = 0; //selectionne le timer 2
-    OC2RS = 0*PR2; // nb d'instructions � l'�tat haut (Ton) = (Ton/T)*PR2
+    OC2R = 0*PR2; // nb d'instructions � l'�tat haut (Ton) = (Ton/T)*PR2
     OC2CONbits.OCM = 0b110; //fault pin disabled
 }
 
@@ -87,11 +88,14 @@ float genReference(float pos, float speed, float dt) {
       // Flat speed part
       return speed*dt - speed*speed/(2*ACCEL);
     }
-    else
+    else if(dt < pos/speed + speed/ACCEL)//ajout de condition sur t3
     {
       // Deceleration part
       float newDt = dt - pos/speed;
       return pos - speed*speed/(2*ACCEL) + speed*newDt - ACCEL*newDt*newDt/2;
+    }
+    else{
+        return pos;// at zero speed, the position is constant.
     }
   }
   else
@@ -144,10 +148,10 @@ void translate(float d, float speed) {
             IFS0bits.T1IF = 0;
             cnt += 0.01; //+10ms
             cmdPos = posReg(genReference(d, speed*MAX_SPEED,cnt));
-            cmdRot = 0;//rotReg(0);
+            cmdRot = rotReg(0);
             sendMotorCmd(0.15 + cmdPos + cmdRot, 0.15 - (cmdPos - cmdRot));
-        }
-    }while((((int)POS1CNT + (int)POS2CNT)*M_PI*D/720) < d);
+         }
+    }while((((int)POS1CNT + (int)POS2CNT)*M_PI*D/720) - d < TOL);
     T1CONbits.TON = 0;
     OC1RS = 0;
     OC2RS = 0;
@@ -166,7 +170,7 @@ void rotate(float theta, float angSpeed) {
             cmdRot = rotReg(genReference(theta, angSpeed*MAX_ANG_SPEED,cnt));
             sendMotorCmd(0.15 + cmdPos + cmdRot, 0.15 - (cmdPos - cmdRot));
         }
-    }while(((int)POS1CNT - (int)POS2CNT) < theta);
+    }while(((int)POS1CNT - (int)POS2CNT) - theta < 0.08);
     T1CONbits.TON = 0;
     OC1RS = 0;
     OC2RS = 0;
@@ -181,7 +185,8 @@ int main(void) {
     UART1Init();
 
     // TODO remove that
-    translate(1, 0.5);
+    //translate(1, 0.5);
+    rotate(2*M_PI, 0.5);
 
     char rxReg;
 
