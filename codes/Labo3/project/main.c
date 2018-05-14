@@ -1,33 +1,20 @@
+#include <xc.h>
+#include <libpic30.h>
 #include "init.h"
 #include "adc.h"
-#include <xc.h>
-#include <string.h> // for memmove()
+#include "struts.h"
 
 #define FILTER_STAGE_COUNT 4
 #define FILTER_STAGE_ORDER 2
 #define FILTER_COUNT 2
+#define MAX_WINDOW_SIZE 10
 
 // Multiplier for float to int32_t
 #define SHIFT 8
 #define M (int32_t)(1 << SHIFT)
 
-#define DEBUG
 #define DEBUG2
 //#define DEBUG3
-#include <libpic30.h>
-
-#ifdef DEBUG
-    int32_t d_out[2][14];
-    int32_t d_max[2];
-    int d_i;
-#endif /* DEBUG */
-
-typedef struct filterStageData_s {
-    int32_t memory[FILTER_STAGE_ORDER];
-    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
-    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
-    int32_t gain;
-} filterStageData_s;
 
 void timer3Init()
 {
@@ -47,7 +34,7 @@ void UART1Init()
     U1STAbits.UTXEN = 1;  // activate transmission
 }
 
-void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
+int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
     int i,j; // Iterator variables
     int32_t newMemory, acc; // Accumulator
@@ -75,7 +62,34 @@ void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_ST
         }
         stages[i].memory[0] = newMemory;
     }
-    *output = input;
+    return input;
+}
+
+void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
+{
+    buffer->window[buffer->index] = value;
+    if (buffer->index < MAX_WINDOW_SIZE)
+    {
+        buffer->index++;
+    }
+    else
+    {
+        buffer->index = 0;
+    }
+}
+
+int updateCircBufferMax(maxCircBuffer_s *buffer)
+{
+    int i;
+    buffer->max = 0;
+    for (i=0; i<MAX_WINDOW_SIZE; i++)
+    {
+        if (buffer->window[i] > buffer->max)
+        {
+            buffer->max = buffer->window[i];
+        }
+    }
+    return buffer->max;
 }
 
 int main(void)
@@ -87,6 +101,14 @@ int main(void)
     // Init ADC1 on AN0
     timer3Init();
     adcTimerInit();
+
+    maxCircBuffer_s maxStructs[FILTER_COUNT];
+    for (i=0; i<FILTER_COUNT; i++)
+    {
+        memset(maxStructs[i].window, 0, sizeof(maxStructs[i].window));
+        maxStructs[i].index = 0;
+    }
+    
     
 #ifdef DEBUG2
     TRISAbits.TRISA1 = 0;
@@ -145,7 +167,9 @@ int main(void)
             // Send signal to each passband filter
             for (i=0; i<FILTER_COUNT;i++)
             {
-                passband(input, &outputs[i], stages[i]);
+                outputs[i] = passband(input, stages[i]);
+                pushToCircBuffer(outputs[i], &maxStructs[i]);
+                updateCircBufferMax(&maxStructs[i]);
             }
 #ifdef DEBUG3
             if (osc == 1)
@@ -170,29 +194,6 @@ int main(void)
                 }
             }
 #endif /* DEBUG3 */
-#ifdef DEBUG
-            /*memmove(&d_out[0][1], &d_out[0][0], 13 * sizeof(int32_t));
-            //memmove(&d_out[1][1], &d_out[0][0], 19 * sizeof(int32_t));
-            d_out[0][0] = outputs[0];
-            //d_out[1][0] = outputs[1];
-            d_max[0] = 0;
-            //d_max[1] = 0;
-            for (d_i=0;d_i<14; d_i++)
-            {
-                if (d_out[0][d_i] > d_max[0])
-                {
-                    d_max[0] = d_out[0][d_i];
-                }
-                /*if (d_out[1][d_i] > d_max[1])
-                {
-                    d_max[1] = d_out[1][d_i];
-                }*/
-            //}
-            if (d_max[0] < outputs[0])
-            {
-                d_max[0] = outputs[0];
-            }
-#endif /* DEBUG */
 #ifdef DEBUG2
             LATAbits.LATA1 = 0;
 #endif /* DEBUG2 */
