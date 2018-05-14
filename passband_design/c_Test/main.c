@@ -75,6 +75,18 @@ int main()
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7117294492219726*M,0.98118861143834546*M}, 0.01024910202670197*M} }
     };
 
+    FILE* fi = fopen("filter_input.json", "w");
+    FILE* f1 = fopen("filter_1.json", "w");
+    FILE* f2 = fopen("filter_2.json", "w");
+    if (fi == NULL || f1 == NULL || f2 == NULL)
+    {
+        printf("Cannot access specified file!\nExiting...\n");
+        exit(1);
+    }
+    fprintf(fi, "[");
+    fprintf(f1, "[");
+    fprintf(f2, "[");
+
     for (sample=0; sample<MAX_SAMPLE; sample++)
     {
         input = floor(((1 << ADC_RESOLUTION)-1) * (sin(2*M_PI*INPUT_FREQ*sample/SAMPLE_FREQ)+1)/2);
@@ -83,6 +95,20 @@ int main()
         {
             passband(input, &outputs[i], stages[i]);
         }
+
+        if (sample == MAX_SAMPLE-1)
+        {
+            fprintf(fi, "%d]", input);
+            fprintf(f1, "%d]", outputs[0]);
+            fprintf(f2, "%d]", outputs[1]);
+        }
+        else
+        {
+            fprintf(fi, "%d,", input);
+            fprintf(f1, "%d,", outputs[0]);
+            fprintf(f2, "%d,", outputs[1]);
+        }
+
         if (max[0] < input)
         {
             max[0] = input;
@@ -97,6 +123,11 @@ int main()
         }
     }
     printf("Max input:\t%d\nMax out 1:\t%d\nMax out 2:\t%d\n\n", max[0], max[1], max[2]);
+    fclose(fi);
+    fclose(f1);
+    fclose(f2);
+
+    system("python /home/julien/git/ELECH309/passband_design/c_Test/plot.py");
 
     return 0;
 }
