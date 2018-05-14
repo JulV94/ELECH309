@@ -1,6 +1,8 @@
 #ifndef STRUCTS_H
 #define	STRUCTS_H
 
+#include "config.h"
+
 typedef struct filterStageData_s {
     int32_t memory[FILTER_STAGE_ORDER];
     int32_t numCoeff[FILTER_STAGE_ORDER + 1];
