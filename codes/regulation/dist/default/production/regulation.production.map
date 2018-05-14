@@ -95,10 +95,10 @@ Program Memory  [Origin = 0x200, Length = 0x15600]
 section                    address   length (PC units)   length (bytes) (dec)
 -------                    -------   -----------------   --------------------
 .text                        0x200               0x482           0x6c3  (1731)
-.text                        0x682               0x5a4           0x876  (2166)
-.dinit                       0xc26                 0x8             0xc  (12)
+.text                        0x682               0x7b2           0xb8b  (2955)
+.dinit                       0xe34                 0x8             0xc  (12)
 
-                 Total program memory used (bytes):          0xf45  (3909) 2%
+                 Total program memory used (bytes):         0x125a  (4698) 3%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -130,9 +130,9 @@ External Symbols in Program Memory (by address):
                   0x0002ce                  ___subsf3
                   0x0002d0                  ___addsf3
                   0x00038a                  ___divsf3
-                  0x00040e                  ___ltsf2
-                  0x00040e                  ___lesf2
                   0x00040e                  ___eqsf2
+                  0x00040e                  ___lesf2
+                  0x00040e                  ___ltsf2
                   0x000412                  ___gesf2
                   0x000412                  ___gtsf2
                   0x000416                  ___fixunssfsi
@@ -155,16 +155,17 @@ External Symbols in Program Memory (by address):
                   0x000726                  _UART1Init
                   0x000742                  _posReg
                   0x000774                  _rotReg
-                  0x000794                  _genReference
-                  0x000970                  _sendMotorCmd
-                  0x000a16                  _translate
-                  0x000ac8                  _rotate
-                  0x000b6c                  _main
-                  0x000b98                  _adcTimerInit
-                  0x000bb6                  _adcPollingStart
-                  0x000bbe                  _adcConversionFinished
-                  0x000bcc                  _adcRead
-                  0x000be2                  _oscillatorInit
+                  0x0007a0                  _genReference
+                  0x00097c                  _genRotReference
+                  0x000b58                  _sendMotorCmd
+                  0x000bfe                  _translate
+                  0x000cb0                  _rotate
+                  0x000d7a                  _main
+                  0x000da6                  _adcTimerInit
+                  0x000dc4                  _adcPollingStart
+                  0x000dcc                  _adcConversionFinished
+                  0x000dda                  _adcRead
+                  0x000df0                  _oscillatorInit
 
 External Symbols in Program Memory (by name):
 
@@ -195,22 +196,23 @@ External Symbols in Program Memory (by name):
                   0x0004cc                  __funpack2
                   0x00023c                  __psv_init
                   0x000200                  __resetPRI
-                  0x000bbe                  _adcConversionFinished
-                  0x000bb6                  _adcPollingStart
-                  0x000bcc                  _adcRead
-                  0x000b98                  _adcTimerInit
+                  0x000dcc                  _adcConversionFinished
+                  0x000dc4                  _adcPollingStart
+                  0x000dda                  _adcRead
+                  0x000da6                  _adcTimerInit
                   0x000682                  _encodersInit
-                  0x000794                  _genReference
-                  0x000b6c                  _main
+                  0x0007a0                  _genReference
+                  0x00097c                  _genRotReference
+                  0x000d7a                  _main
                   0x0006c6                  _motorsInit
-                  0x000be2                  _oscillatorInit
+                  0x000df0                  _oscillatorInit
                   0x000742                  _posReg
                   0x000774                  _rotReg
-                  0x000ac8                  _rotate
-                  0x000970                  _sendMotorCmd
+                  0x000cb0                  _rotate
+                  0x000b58                  _sendMotorCmd
                   0x000564                  _sqrtf
                   0x000702                  _timersInit
-                  0x000a16                  _translate
+                  0x000bfe                  _translate
 
 Memory Configuration
 
@@ -390,36 +392,36 @@ __FUID3
 .comment
  *(.comment)
 
-.debug_info       0x000000       0x249f
+.debug_info       0x000000       0x2522
  *(.debug_info)
  .debug_info      0x000000        0x578 build/default/production/init.o
- .debug_info      0x000578       0x17ee build/default/production/main.o
- .debug_info      0x001d66        0x739 build/default/production/adc.o
+ .debug_info      0x000578       0x1871 build/default/production/main.o
+ .debug_info      0x001de9        0x739 build/default/production/adc.o
  *(.gnu.linkonce.wi.*)
 
-.debug_abbrev     0x000000        0x2ea
+.debug_abbrev     0x000000        0x2f9
  *(.debug_abbrev)
  .debug_abbrev    0x000000         0xd6 build/default/production/init.o
- .debug_abbrev    0x0000d6        0x149 build/default/production/main.o
- .debug_abbrev    0x00021f         0xcb build/default/production/adc.o
+ .debug_abbrev    0x0000d6        0x158 build/default/production/main.o
+ .debug_abbrev    0x00022e         0xcb build/default/production/adc.o
 
-.debug_line       0x000000        0x350
+.debug_line       0x000000        0x374
  *(.debug_line)
  .debug_line      0x000000         0xe8 build/default/production/init.o
- .debug_line      0x0000e8        0x176 build/default/production/main.o
- .debug_line      0x00025e         0xf2 build/default/production/adc.o
+ .debug_line      0x0000e8        0x19a build/default/production/main.o
+ .debug_line      0x000282         0xf2 build/default/production/adc.o
 
-.debug_frame      0x000000        0x216
+.debug_frame      0x000000        0x23a
  *(.debug_frame)
  .debug_frame     0x000000         0x30 build/default/production/init.o
- .debug_frame     0x000030        0x162 build/default/production/main.o
- .debug_frame     0x000192         0x84 build/default/production/adc.o
+ .debug_frame     0x000030        0x186 build/default/production/main.o
+ .debug_frame     0x0001b6         0x84 build/default/production/adc.o
 
-.debug_str        0x000000         0xf8
+.debug_str        0x000000         0xfe
  *(.debug_str)
  .debug_str       0x000000         0x16 build/default/production/init.o
- .debug_str       0x000016         0xa8 build/default/production/main.o
- .debug_str       0x0000be         0x3a build/default/production/adc.o
+ .debug_str       0x000016         0xae build/default/production/main.o
+ .debug_str       0x0000c4         0x3a build/default/production/adc.o
 
 .debug_loc
  *(.debug_loc)
@@ -428,14 +430,14 @@ __FUID3
  *(.debug_macinfo)
 
 .debug_pubnames
-                  0x000000        0x156
+                  0x000000        0x16a
  *(.debug_pubnames)
  .debug_pubnames
                   0x000000         0x50 build/default/production/init.o
  .debug_pubnames
-                  0x000050         0xa9 build/default/production/main.o
+                  0x000050         0xbd build/default/production/main.o
  .debug_pubnames
-                  0x0000f9         0x5d build/default/production/adc.o
+                  0x00010d         0x5d build/default/production/adc.o
 
 .debug_ranges
  *(.debug_ranges)
@@ -1624,26 +1626,27 @@ __c30_signature
  .nbss              0x0800          0x2 c:/program files (x86)/microchip/xc16/v1.33/bin/bin/../../lib\libm-elf.a(errno.eo)
                     0x0800                  _errno
 
-.text             0x000682        0x5a4
- .text            0x000682        0x516 build/default/production/main.o
+.text             0x000682        0x7b2
+ .text            0x000682        0x724 build/default/production/main.o
                   0x000682                  _encodersInit
                   0x0006c6                  _motorsInit
                   0x000702                  _timersInit
                   0x000726                  _UART1Init
                   0x000742                  _posReg
                   0x000774                  _rotReg
-                  0x000794                  _genReference
-                  0x000970                  _sendMotorCmd
-                  0x000a16                  _translate
-                  0x000ac8                  _rotate
-                  0x000b6c                  _main
- .text            0x000b98         0x4a build/default/production/adc.o
-                  0x000b98                  _adcTimerInit
-                  0x000bb6                  _adcPollingStart
-                  0x000bbe                  _adcConversionFinished
-                  0x000bcc                  _adcRead
- .text            0x000be2         0x44 build/default/production/init.o
-                  0x000be2                  _oscillatorInit
+                  0x0007a0                  _genReference
+                  0x00097c                  _genRotReference
+                  0x000b58                  _sendMotorCmd
+                  0x000bfe                  _translate
+                  0x000cb0                  _rotate
+                  0x000d7a                  _main
+ .text            0x000da6         0x4a build/default/production/adc.o
+                  0x000da6                  _adcTimerInit
+                  0x000dc4                  _adcPollingStart
+                  0x000dcc                  _adcConversionFinished
+                  0x000dda                  _adcRead
+ .text            0x000df0         0x44 build/default/production/init.o
+                  0x000df0                  _oscillatorInit
 
-.dinit            0x000c26          0x8
- .dinit           0x000c26          0x8 data_init
+.dinit            0x000e34          0x8
+ .dinit           0x000e34          0x8 data_init
