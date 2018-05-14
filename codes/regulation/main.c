@@ -3,14 +3,13 @@
 #include <xc.h>
 #include "math.h"
 #define D 0.1016f
-#define E 0.22 // TODO to be defined
+#define E 0.22
 #ifndef M_PI
     #define M_PI 3.141592653f
 #endif
 #define ACCEL 0.3
 #define ANG_ACCEL ACCEL
 #define MAX_SPEED 0.4
-#define MAX_ANG_SPEED MAX_SPEED*2/E
 #define KP_POS 8.0/20
 #define KP_ROT 10.9/(20*5)
 #define TOL -0.001
@@ -73,7 +72,7 @@ float posReg(float reference) {
 //regulateur de rotation
 float rotReg(float reference) {
     //float tmp;
-    
+
     //tmp = ((int)POS1CNT - (int)POS2CNT);
     //if ((tmp < -50) || (tmp > 50))
         //tmp += 1;
@@ -187,7 +186,7 @@ void sendMotorCmd(float cmd1, float cmd2) {
   OC1RS = cmd1*PR2;
   OC2RS = cmd2*PR2;
 }
-//fonction qui permet de régler la translation
+//fonction qui permet de rï¿½gler la translation
 void translate(float d, float speed) {
     float cmdPos, cmdRot;
     float cnt = 0; //compteur temps
@@ -206,7 +205,7 @@ void translate(float d, float speed) {
     OC1RS = 0;
     OC2RS = 0;
 }
-//fonction qui permet de régler la rotation du robot
+//fonction qui permet de rï¿½gler la rotation du robot
 void rotate(float theta, float angSpeed) {
     float cmdPos, cmdRot;
     float cnt = 0; //compteur temps
@@ -217,10 +216,10 @@ void rotate(float theta, float angSpeed) {
             IFS0bits.T1IF = 0;
             cnt += 0.01; //+10ms
             cmdPos = posReg(0);
-            cmdRot = rotReg(genReference(theta*E/2, angSpeed*MAX_ANG_SPEED*E/2,cnt));
+            cmdRot = rotReg(genReference(theta*E/2, angSpeed*MAX_SPEED,cnt));
             sendMotorCmd(0.15 + cmdPos + cmdRot, 0.15 - (cmdPos - cmdRot));
         }
-    }while(((int)POS1CNT - (int)POS2CNT)*(D*M_PI/360*E) - theta < -0.08);
+    }while(((int)POS1CNT - (int)POS2CNT)*(D*M_PI/(360*E)) - theta < -0.08);
     T1CONbits.TON = 0;
     OC1RS = 0;
     OC2RS = 0;
