@@ -5,6 +5,7 @@
 #include "init.h"
 #include "adc.h"
 #include "structs.h"
+#include "FskDetector.h"
 
 void timer3Init()
 {
@@ -68,7 +69,7 @@ void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
     }
 }
 
-int updateCircBufferMax(maxCircBuffer_s *buffer)
+int32_t updateCircBufferMax(maxCircBuffer_s *buffer)
 {
     int i;
     buffer->max = 0;
@@ -82,9 +83,14 @@ int updateCircBufferMax(maxCircBuffer_s *buffer)
     return buffer->max;
 }
 
+int toBinary(int32_t value)
+{
+    return (value > THRESHOLD);
+}
+
 int main(void)
 {
-    int i; // Iterator variable
+    int i, message, bitCounter = 0; // Iterator variable
 	oscillatorInit();
     AD1PCFGL = 0xFFFF;
     
@@ -99,16 +105,16 @@ int main(void)
         maxStructs[i].index = 0;
     }
     
+    // Init UART1
+    UART1Init();
+    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
+    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
     
 #ifdef DEBUG2
     TRISAbits.TRISA1 = 0;
 #endif /* DEBUG2 */
     
-#ifdef DEBUG3    
-    // Init UART1
-    UART1Init();
-    RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
-    RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
+#ifdef DEBUG3
     char rxReg;
     int osc = 0;
     int oscCountSuper = 0;
@@ -161,6 +167,25 @@ int main(void)
                 pushToCircBuffer(outputs[i], &maxStructs[i]);
                 updateCircBufferMax(&maxStructs[i]);
             }
+            for (i=0; i<OSR; i++)
+            {
+                message = fskDetector(toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
+            }
+            if (bitCounter < 13)
+            {
+                bitCounter++;
+            }
+            else
+            {
+                bitCounter = 0;
+                for (i=0; i<OSR; i++)
+                {
+                    fskDetector(0, 0);
+                }
+                U1TXREG = (char)((message & 0b0110000000000) >> 10);  // Order
+                U1TXREG = (char)((message & 0b0001111111100) >> 2);   // parameter
+            }
+            
 #ifdef DEBUG3
             if (osc == 1)
             {
