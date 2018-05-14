@@ -1,11 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>    // For memset
-#include "config.h"
-#include "structs.h"
 
-int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
+#define FILTER_STAGE_COUNT 4
+#define FILTER_STAGE_ORDER 2
+#define FILTER_COUNT 2
+
+// Multiplier for float to int32_t
+#define SHIFT 8
+#define M (int32_t)(1 << SHIFT)
+
+#define INPUT_FREQ 1100.0
+#define MAX_SAMPLE 1000
+#define SAMPLE_FREQ 13000.0
+#define ADC_RESOLUTION 10
+
+typedef struct filterStageData_s {
+    int32_t memory[FILTER_STAGE_ORDER];
+    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
+    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+    int32_t gain;
+} filterStageData_s;
+
+void passband(int32_t input, int32_t* output, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
     int i,j; // Iterator variables
     int32_t newMemory, acc; // Accumulator
@@ -36,49 +53,15 @@ int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
         }
         stages[i].memory[0] = newMemory;
     }
-    return input;
-}
-
-void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
-{
-    buffer->window[buffer->index] = value;
-    if (buffer->index < MAX_WINDOW_SIZE)
-    {
-        buffer->index++;
-    }
-    else
-    {
-        buffer->index = 0;
-    }
-}
-
-int updateCircBufferMax(maxCircBuffer_s *buffer)
-{
-    int i;
-    buffer->max = 0;
-    for (i=0; i<MAX_WINDOW_SIZE; i++)
-    {
-        if (buffer->window[i] > buffer->max)
-        {
-            buffer->max = buffer->window[i];
-        }
-    }
-    return buffer->max;
+    *output = input;
 }
 
 int main()
 {
     int i, sample; // Iterator variable
 
-    maxCircBuffer_s maxStructs[FILTER_COUNT];
-    for (i=0; i<FILTER_COUNT; i++)
-    {
-        memset(maxStructs[i].window, 0, sizeof(maxStructs[i].window));
-        maxStructs[i].index = 0;
-    }
-
     // Init the passband filters [0]:900 / [1]:1100
-    int32_t input, maxInput = 0;
+    int32_t input, max[3] = {0};
     int32_t outputs[FILTER_COUNT];
     filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
         { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8492328819953079*M,0.99430893265693898*M}, 0.0073111832960681021*M},
@@ -110,9 +93,7 @@ int main()
 
         for (i=0; i<FILTER_COUNT;i++)
         {
-            outputs[i] = passband(input, stages[i]);
-            pushToCircBuffer(outputs[i], &maxStructs[i]);
-            updateCircBufferMax(&maxStructs[i]);
+            passband(input, &outputs[i], stages[i]);
         }
 
         if (sample == MAX_SAMPLE-1)
@@ -128,12 +109,20 @@ int main()
             fprintf(f2, "%d,", outputs[1]);
         }
 
-        if (maxInput < input)
+        if (max[0] < input)
         {
-            maxInput = input;
+            max[0] = input;
+        }
+        if (max[1] < outputs[0])
+        {
+            max[1] = outputs[0];
+        }
+        if (max[2] < outputs[1])
+        {
+            max[2] = outputs[1];
         }
     }
-    printf("Max input:\t%d\nMax out 1:\t%d\nMax out 2:\t%d\n\n", maxInput, maxStructs[0].max, maxStructs[1].max);
+    printf("Max input:\t%d\nMax out 1:\t%d\nMax out 2:\t%d\n\n", max[0], max[1], max[2]);
     fclose(fi);
     fclose(f1);
     fclose(f2);
