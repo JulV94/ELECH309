@@ -4,8 +4,16 @@
 	<stdlib.h>
 	<math.h>
 
-1524932517 source:/home/julien/git/ELECH309/passband_design/c_Test/main.c
+1526403251 source:/home/julien/git/ELECH309/passband_design/c_Test/main.c
 	<stdio.h>
 	<stdlib.h>
 	<math.h>
+	<string.h>
+	"config.h"
+	"structs.h"
+
+1526403502 /home/julien/git/ELECH309/passband_design/c_Test/config.h
+
+1526401011 /home/julien/git/ELECH309/passband_design/c_Test/structs.h
+	"config.h"
 

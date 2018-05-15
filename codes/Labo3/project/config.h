@@ -8,7 +8,7 @@
 #define THRESHOLD 512
 
 // Multiplier for float to int32_t
-#define SHIFT 8
+#define SHIFT 14
 #define M (int32_t)(1 << SHIFT)
 
 #define DEBUG2

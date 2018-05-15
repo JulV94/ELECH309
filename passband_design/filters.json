@@ -2,11 +2,11 @@
   "sampleNb":1500,
   "sample_freq":15000,
   "adc_resolution":10,
-  "input_freq":900,
+  "input_freq":1100,
   "input_amplitude":3.3,
   "integer_filter":{
     "is_active":true,
-    "bit_shift":10,
+    "bit_shift":14,
     "scaling":1
   },
   "filters":[

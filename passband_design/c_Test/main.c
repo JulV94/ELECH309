@@ -11,7 +11,7 @@ int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
     int32_t newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        newMemory = stages[i].denCoeff[0] * input * M;
+        newMemory = stages[i].denCoeff[0] * input;
         for (j=0;j<FILTER_STAGE_ORDER; j++)
         {
             newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
@@ -24,7 +24,7 @@ int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
             acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
         }
         // Apply output in input of next stage
-        acc = acc >> 2*SHIFT;
+        acc = acc >> SHIFT;
         input = stages[i].gain * acc;
         //printf("Before shift : %#04x\n", input);
         input = input >> SHIFT;

@@ -17,7 +17,12 @@ def filters_to_int(data):
                 stage["numCoeff"][i] = floor(multiplier * stage["numCoeff"][i])
             stage["gain"] = floor(multiplier * stage["gain"])
 
+def overflow_test(value, max, context):
+    if value > max:
+        print(str(context) + " - Value exceeded the limit : " + str(value))
+
 def passband(inp, data):
+    limit = (1 << 32) - 1
     output = []
     multiplier = 1 << data["integer_filter"]["bit_shift"]
     for filt in data["filters"]:
@@ -25,20 +30,25 @@ def passband(inp, data):
         myInput = inp
         for stage in filt["stages"]:
             newMemory = stage["denCoeff"][0] * myInput
-            if data["integer_filter"]["is_active"]:
-                newMemory = newMemory * multiplier
+            overflow_test(newMemory, limit, "newMemory 1")
             for i in range(len(stage["memory"])):
                 newMemory -= stage["denCoeff"][i+1] * stage["memory"][i]
             if data["integer_filter"]["is_active"]:
                 newMemory = newMemory//multiplier
+                overflow_test(newMemory, limit, "newMemory 2")
             acc = stage["numCoeff"][0] * newMemory
+            overflow_test(acc, limit, "acc 1")
             for i in range(len(stage["memory"])):
                 acc += stage["numCoeff"][i+1] * stage["memory"][i]
+                overflow_test(acc, limit, "acc 2")
             if data["integer_filter"]["is_active"]:
-                acc = acc//(multiplier * multiplier)
+                acc = acc//multiplier
+                overflow_test(acc, limit, "acc 3")
             myInput = stage["gain"] * acc
+            overflow_test(myInput, limit, "myInput 1")
             if data["integer_filter"]["is_active"]:
                 myInput = myInput//multiplier
+                overflow_test(myInput, limit, "myInput 2")
             for i in range(len(stage["memory"])-1, 0, -1):
                 stage["memory"][i] = stage["memory"][i-1]
             stage["memory"][0] = newMemory
