@@ -9,7 +9,7 @@
 
 void timer3Init()
 {
-    PR3 = 3076; // Freq 13kHz (40MHz PIC timer at every 3076 instructions -> 13kHz)
+    PR3 = 2667; // Freq 15kHz (40MHz PIC timer at every 2667 instructions -> 15kHz)
     T3CONbits.TCKPS = 0; // Prescaler at 1
     T3CONbits.TON = 1; // Activation
 }
@@ -90,10 +90,10 @@ int toBinary(int32_t value)
 
 int main(void)
 {
-    int i, message, bitCounter = 0; // Iterator variable
+    int i, message; // Iterator variable
 	oscillatorInit();
     AD1PCFGL = 0xFFFF;
-    
+
     // Init ADC1 on AN0
     timer3Init();
     adcTimerInit();
@@ -104,16 +104,16 @@ int main(void)
         memset(maxStructs[i].window, 0, sizeof(maxStructs[i].window));
         maxStructs[i].index = 0;
     }
-    
+
     // Init UART1
     UART1Init();
     RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
     RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
-    
+
 #ifdef DEBUG2
     TRISAbits.TRISA1 = 0;
 #endif /* DEBUG2 */
-    
+
 #ifdef DEBUG3
     char rxReg;
     int osc = 0;
@@ -121,7 +121,7 @@ int main(void)
     int dataOsc[3][1000];
     int iosc;
 #endif /* DEBUG3 */
-    
+
     // Init the passband filters [0]:900 / [1]:1100
     int32_t input;
     int32_t outputs[FILTER_COUNT];
@@ -130,13 +130,13 @@ int main(void)
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.8593573389143425*M,0.99449985838090327*M}, 0.0073111832960681021*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.8449166157236199*M,0.98644899951001819*M}, 0.0072825057377408743*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.8491968712651323*M,0.98663848354046868*M}, 0.0072825057377408743*M} },
-          
+
         { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7777782573919603*M,0.99304925110422138*M}, 0.0089333802848647476*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7926618979622799*M,0.99327660434585519*M}, 0.0089333802848647476*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7736040019922288*M,0.98345970421132356*M}, 0.0088906476834830581*M},
           {{0}, {1*M,0*M,-1*M}, {1*M,-1.7798575052955288*M,0.98368495232171638*M}, 0.0088906476834830581*M} }
     };
-	
+
 	while(1) {
 #ifdef DEBUG3
         if (U1STAbits.URXDA)  // A message is in the receiver buffer
@@ -167,25 +167,17 @@ int main(void)
                 pushToCircBuffer(outputs[i], &maxStructs[i]);
                 updateCircBufferMax(&maxStructs[i]);
             }
-            for (i=0; i<OSR; i++)
+            message = fskDetector(toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
+            if (message != 0)
             {
-                message = fskDetector(toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
-            }
-            if (bitCounter < 13)
-            {
-                bitCounter++;
-            }
-            else
-            {
-                bitCounter = 0;
                 for (i=0; i<OSR; i++)
                 {
                     fskDetector(0, 0);
                 }
-                U1TXREG = (char)((message & 0b0110000000000) >> 10);  // Order
-                U1TXREG = (char)((message & 0b0001111111100) >> 2);   // parameter
+                U1TXREG = (char)(message >> 8);  // Order
+                U1TXREG = (char)(message & 0b11111111);   // parameter
             }
-            
+
 #ifdef DEBUG3
             if (osc == 1)
             {
