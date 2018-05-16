@@ -25,35 +25,29 @@ void UART1Init()
     U1STAbits.UTXEN = 1;  // activate transmission
 }
 
-int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
+void processStage(filterStageData_s* stage, int32_t* input, int32_t* newMemory, int32_t* acc)
 {
-    int i,j; // Iterator variables
+    *newMemory = stage->denCoeff[0] * *input - stage->denCoeff[1] * stage->memory[0] - stage->denCoeff[2] * stage->memory[1];
+    *newMemory = *newMemory >> SHIFT;
+    *acc = stage->numCoeff[0] * *newMemory + stage->numCoeff[1] * stage->memory[0] + stage->numCoeff[2] * stage->memory[1];
+    // Apply output in input of next stage
+    *acc = *acc >> SHIFT;
+    *input = stage->gain * *acc;
+    *input = *input >> SHIFT;
+    // Shift the memory
+    stage->memory[1] = stage->memory[0];
+    stage->memory[0] = *newMemory;
+}
+
+int32_t passband(int32_t* input, filterStageData_s stages[FILTER_STAGE_COUNT])
+{
+    int i; // Iterator variables
     int32_t newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        newMemory = stages[i].denCoeff[0] * input;
-        for (j=0;j<FILTER_STAGE_ORDER; j++)
-        {
-            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
-        }
-        newMemory = newMemory >> SHIFT;
-        acc = stages[i].numCoeff[0] * newMemory;
-        for (j=0;j<FILTER_STAGE_ORDER; j++)
-        {
-            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
-        }
-        // Apply output in input of next stage
-        acc = acc >> SHIFT;
-        input = stages[i].gain * acc;
-        input = input >> SHIFT;
-        // Shift the memory
-        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
-        {
-            stages[i].memory[j] = stages[i].memory[j-1];
-        }
-        stages[i].memory[0] = newMemory;
+        processStage(&stages[i], input, &newMemory, &acc);
     }
-    return input;
+    return *input;
 }
 
 void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
@@ -69,7 +63,7 @@ void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
     }
 }
 
-int32_t updateCircBufferMax(maxCircBuffer_s *buffer)
+void updateCircBufferMax(maxCircBuffer_s *buffer)
 {
     int i;
     buffer->max = 0;
@@ -80,7 +74,6 @@ int32_t updateCircBufferMax(maxCircBuffer_s *buffer)
             buffer->max = buffer->window[i];
         }
     }
-    return buffer->max;
 }
 
 int toBinary(int32_t value)
@@ -102,6 +95,7 @@ int main(void)
     for (i=0; i<FILTER_COUNT; i++)
     {
         memset(maxStructs[i].window, 0, sizeof(maxStructs[i].window));
+        maxStructs[i].max = 0;
         maxStructs[i].index = 0;
     }
 
@@ -126,15 +120,15 @@ int main(void)
     int32_t input;
     int32_t outputs[FILTER_COUNT];
     filterStageData_s stages[FILTER_COUNT][FILTER_STAGE_COUNT] = {
-        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.8492328819953079*M,0.99430893265693898*M}, 0.0073111832960681021*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8593573389143425*M,0.99449985838090327*M}, 0.0073111832960681021*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8449166157236199*M,0.98644899951001819*M}, 0.0072825057377408743*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.8491968712651323*M,0.98663848354046868*M}, 0.0072825057377408743*M} },
+        { {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.8492328819953079*M,0.99430893265693898*M}, 0.0073111832960681021*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.8593573389143425*M,0.99449985838090327*M}, 0.0073111832960681021*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.8449166157236199*M,0.98644899951001819*M}, 0.0072825057377408743*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.8491968712651323*M,0.98663848354046868*M}, 0.0072825057377408743*M} },
 
-        { {{0}, {1*M,0*M,-1*M}, {1*M,-1.7777782573919603*M,0.99304925110422138*M}, 0.0089333802848647476*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7926618979622799*M,0.99327660434585519*M}, 0.0089333802848647476*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7736040019922288*M,0.98345970421132356*M}, 0.0088906476834830581*M},
-          {{0}, {1*M,0*M,-1*M}, {1*M,-1.7798575052955288*M,0.98368495232171638*M}, 0.0088906476834830581*M} }
+        { {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.7777782573919603*M,0.99304925110422138*M}, 0.0089333802848647476*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.7926618979622799*M,0.99327660434585519*M}, 0.0089333802848647476*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.7736040019922288*M,0.98345970421132356*M}, 0.0088906476834830581*M},
+          {{0,0}, {1*M,0*M,-1*M}, {1*M,-1.7798575052955288*M,0.98368495232171638*M}, 0.0088906476834830581*M} }
     };
 
 	while(1) {
@@ -163,7 +157,7 @@ int main(void)
             // Send signal to each passband filter
             for (i=0; i<FILTER_COUNT;i++)
             {
-                outputs[i] = passband(input, stages[i]);
+                outputs[i] = passband(&input, stages[i]);
                 pushToCircBuffer(outputs[i], &maxStructs[i]);
                 updateCircBufferMax(&maxStructs[i]);
             }
