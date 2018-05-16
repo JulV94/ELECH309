@@ -31,6 +31,10 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="FskDetector.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="FskDetector.h" />
 		<Unit filename="config.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />

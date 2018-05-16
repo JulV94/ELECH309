@@ -4,6 +4,7 @@
 #include <string.h>    // For memset
 #include "config.h"
 #include "structs.h"
+#include "FskDetector.h"
 
 void processStage(filterStageData_s* stage, int32_t* input, int32_t* newMemory, int32_t* acc)
 {
@@ -63,7 +64,7 @@ int toBinary(int32_t value)
 
 int main()
 {
-    int i, sample; // Iterator variable
+    int i, message, sample; // Iterator variable
 
     maxCircBuffer_s maxStructs[FILTER_COUNT];
     for (i=0; i<FILTER_COUNT; i++)
@@ -109,6 +110,17 @@ int main()
             pushToCircBuffer(outputs[i], &maxStructs[i]);
             updateCircBufferMax(&maxStructs[i]);
         }
+        //printf("900 max bit %d\n 1100 max bit %d\n", toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
+        message = fskDetector(toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
+        //printf("message is %d\n", message);
+        if (message != 0)
+        {
+            for (i=0; i<OSR; i++)
+            {
+                fskDetector(0, 0);
+            }
+                printf("message %X is sent\n", message);
+            }
 
         if (sample == MAX_SAMPLE-1)
         {

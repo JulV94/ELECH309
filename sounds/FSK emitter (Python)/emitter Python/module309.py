@@ -36,7 +36,7 @@ def createFrame(command, data):
     for a in list(s[2:]):
         message = message + [int(a)]
     parity = message.count(1) % 2
-    frame = [0] + message + [parity, 1]
+    frame = [0] + message + [parity, 0]
     return frame
 
 def createSignal(frame, sampleRate=44100, fc=1000, df=100, Tb=0.1):
