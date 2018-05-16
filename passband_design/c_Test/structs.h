@@ -4,9 +4,9 @@
 #include "config.h"
 
 typedef struct filterStageData_s {
-    int32_t memory[FILTER_STAGE_ORDER];
-    int32_t numCoeff[FILTER_STAGE_ORDER + 1];
-    int32_t denCoeff[FILTER_STAGE_ORDER + 1];
+    int32_t memory[3];
+    int32_t numCoeff[3];
+    int32_t denCoeff[3];
     int32_t gain;
 } filterStageData_s;
 

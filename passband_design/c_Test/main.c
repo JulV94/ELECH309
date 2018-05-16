@@ -5,36 +5,27 @@
 #include "config.h"
 #include "structs.h"
 
+void processStage(filterStageData_s* stage, int32_t* input, int32_t* newMemory, int32_t* acc)
+{
+    *newMemory = stage->denCoeff[0] * *input - stage->denCoeff[1] * stage->memory[0] - stage->denCoeff[2] * stage->memory[1];
+    *newMemory = *newMemory >> SHIFT;
+    *acc = stage->numCoeff[0] * *newMemory + stage->numCoeff[1] * stage->memory[0] + stage->numCoeff[2] * stage->memory[1];
+    // Apply output in input of next stage
+    *acc = *acc >> SHIFT;
+    *input = stage->gain * *acc;
+    *input = *input >> SHIFT;
+    // Shift the memory
+    stage->memory[1] = stage->memory[0];
+    stage->memory[0] = *newMemory;
+}
+
 int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
-    int i,j; // Iterator variables
+    int i; // Iterator variables
     int32_t newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        newMemory = stages[i].denCoeff[0] * input;
-        for (j=0;j<FILTER_STAGE_ORDER; j++)
-        {
-            newMemory -= stages[i].denCoeff[j+1] * stages[i].memory[j];
-        }
-
-        newMemory = newMemory >> SHIFT;
-        acc = stages[i].numCoeff[0] * newMemory;
-        for (j=0;j<FILTER_STAGE_ORDER; j++)
-        {
-            acc += stages[i].numCoeff[j+1] * stages[i].memory[j];
-        }
-        // Apply output in input of next stage
-        acc = acc >> SHIFT;
-        input = stages[i].gain * acc;
-        //printf("Before shift : %#04x\n", input);
-        input = input >> SHIFT;
-        //printf("After shift : %#04x\n\n", input);
-        // Shift the memory
-        for (j=FILTER_STAGE_ORDER-1;j>0; j--)
-        {
-            stages[i].memory[j] = stages[i].memory[j-1];
-        }
-        stages[i].memory[0] = newMemory;
+        processStage(&stages[i], &input, &newMemory, &acc);
     }
     return input;
 }
@@ -52,7 +43,7 @@ void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
     }
 }
 
-int updateCircBufferMax(maxCircBuffer_s *buffer)
+void updateCircBufferMax(maxCircBuffer_s *buffer)
 {
     int i;
     buffer->max = 0;
@@ -63,7 +54,11 @@ int updateCircBufferMax(maxCircBuffer_s *buffer)
             buffer->max = buffer->window[i];
         }
     }
-    return buffer->max;
+}
+
+int toBinary(int32_t value)
+{
+    return (value > THRESHOLD);
 }
 
 int main()
