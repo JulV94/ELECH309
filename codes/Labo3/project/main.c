@@ -39,15 +39,15 @@ void processStage(filterStageData_s* stage, int32_t* input, int32_t* newMemory, 
     stage->memory[0] = *newMemory;
 }
 
-int32_t passband(int32_t* input, filterStageData_s stages[FILTER_STAGE_COUNT])
+int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
 {
     int i; // Iterator variables
     int32_t newMemory, acc; // Accumulator
     for (i=0; i<FILTER_STAGE_COUNT; i++)
     {
-        processStage(&stages[i], input, &newMemory, &acc);
+        processStage(&stages[i], &input, &newMemory, &acc);
     }
-    return *input;
+    return input;
 }
 
 void pushToCircBuffer(int32_t value, maxCircBuffer_s *buffer)
@@ -104,17 +104,9 @@ int main(void)
     RPINR18bits.U1RXR = 6; // Configure RP6 as UART1 Rx
     RPOR3bits.RP7R = 3;  // Configure RP7 as UART1 Tx
 
-#ifdef DEBUG2
+#ifdef DEBUG
     TRISAbits.TRISA1 = 0;
-#endif /* DEBUG2 */
-
-#ifdef DEBUG3
-    char rxReg;
-    int osc = 0;
-    int oscCountSuper = 0;
-    int dataOsc[3][1000];
-    int iosc;
-#endif /* DEBUG3 */
+#endif /* DEBUG */
 
     // Init the passband filters [0]:900 / [1]:1100
     int32_t input;
@@ -132,32 +124,17 @@ int main(void)
     };
 
 	while(1) {
-#ifdef DEBUG3
-        if (U1STAbits.URXDA)  // A message is in the receiver buffer
-        {
-            rxReg = U1RXREG;
-            if (rxReg == 's')
-            {
-                // send the samples to oscilloscope
-                osc = 1;
-            }
-            else
-            {
-                U1TXREG = rxReg; // Echo test
-            }
-        }
-#endif /* DEBUG3 */
         if (adcConversionFinished())
         {
-#ifdef DEBUG2
+#ifdef DEBUG
             LATAbits.LATA1 = 1;
-#endif /* DEBUG2 */
+#endif /* DEBUG */
             // signal needs to be processed
             input = (int32_t)adcRead();
             // Send signal to each passband filter
             for (i=0; i<FILTER_COUNT;i++)
             {
-                outputs[i] = passband(&input, stages[i]);
+                outputs[i] = passband(input, stages[i]);
                 pushToCircBuffer(outputs[i], &maxStructs[i]);
                 updateCircBufferMax(&maxStructs[i]);
             }
@@ -171,33 +148,9 @@ int main(void)
                 U1TXREG = (char)(message >> 8);  // Order
                 U1TXREG = (char)(message & 0b11111111);   // parameter
             }
-
-#ifdef DEBUG3
-            if (osc == 1)
-            {
-                dataOsc[0][oscCountSuper] = input;
-                dataOsc[1][oscCountSuper] = outputs[0];
-                dataOsc[2][oscCountSuper] = outputs[1];
-                oscCountSuper++;
-                if (oscCountSuper >= 1000)
-                {
-                    osc = 2;
-                }
-            }
-            if (osc == 2)
-            {
-                for (iosc=0; iosc<1000; iosc++)
-                {
-                    U1TXREG = dataOsc[0][iosc]/4;
-                    U1TXREG = dataOsc[1][iosc]/4;
-                    U1TXREG = dataOsc[2][iosc]/4;
-                    __delay_ms(10);
-                }
-            }
-#endif /* DEBUG3 */
-#ifdef DEBUG2
+#ifdef DEBUG
             LATAbits.LATA1 = 0;
-#endif /* DEBUG2 */
+#endif /* DEBUG */
         }
 	}
 }
