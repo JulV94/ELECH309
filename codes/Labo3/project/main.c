@@ -139,7 +139,7 @@ int main(void)
                 updateCircBufferMax(&maxStructs[i]);
             }
             message = fskDetector(toBinary(maxStructs[0].max), toBinary(maxStructs[1].max));
-            if (message != 0)
+            if (message)
             {
                 for (i=0; i<OSR; i++)
                 {
