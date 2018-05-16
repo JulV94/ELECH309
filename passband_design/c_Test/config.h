@@ -14,7 +14,7 @@
 //#define DEBUG3
 
 #define INPUT_FREQ 900.0
-#define MAX_SAMPLE 1500
+#define MAX_SAMPLE 20000
 #define SAMPLE_FREQ 15000.0
 #define ADC_RESOLUTION 10
 

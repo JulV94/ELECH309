@@ -62,9 +62,20 @@ int toBinary(int32_t value)
     return (value > THRESHOLD);
 }
 
+int toFreq(int bit)
+{
+    if (bit)
+    {
+        return 1100;
+    }
+    return 900;
+}
+
 int main()
 {
-    int i, message, sample; // Iterator variable
+    int i, message, sample, bitCount=0, osrCount=0; // Iterator variable
+
+    int frame[13] = {0,1,0,0,1,0,1,0,0,0,0,1,0};  // 0x250
 
     maxCircBuffer_s maxStructs[FILTER_COUNT];
     for (i=0; i<FILTER_COUNT; i++)
@@ -102,7 +113,20 @@ int main()
 
     for (sample=0; sample<MAX_SAMPLE; sample++)
     {
-        input = floor(((1 << ADC_RESOLUTION)-1) * (sin(2*M_PI*INPUT_FREQ*sample/SAMPLE_FREQ)+1)/2);
+        if (osrCount < OSR)
+        {
+            osrCount++;
+        }
+        else
+        {
+            osrCount = 0;
+            bitCount++;
+        }
+        if (bitCount > 12)
+        {
+            bitCount = 12;
+        }
+        input = floor(((1 << ADC_RESOLUTION)-1) * (sin(2*M_PI*toFreq(frame[bitCount])*sample/SAMPLE_FREQ)+1)/2);
 
         for (i=0; i<FILTER_COUNT;i++)
         {
@@ -119,7 +143,7 @@ int main()
             {
                 fskDetector(0, 0);
             }
-                printf("message %X is sent\n", message);
+                printf("message %#X is sent\n", message);
             }
 
         if (sample == MAX_SAMPLE-1)

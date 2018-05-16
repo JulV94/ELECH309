@@ -27,7 +27,7 @@ def plot(data, ref, signals):
     pyplot.show()
 
 def main():
-    data = {"sampleNb":1500, "sample_freq":15000, "input_freq":900, "adc_resolution":10}
+    data = {"sampleNb":20000, "sample_freq":15000, "input_freq":900, "adc_resolution":10}
     with open('filter_input.json') as fi:
         input = json.load(fi)
     with open('filter_1.json') as f1:
