@@ -6,18 +6,38 @@
 #include "structs.h"
 #include "FskDetector.h"
 
+int yolo = 0;
+
 void processStage(filterStageData_s* stage, int32_t* input, int32_t* newMemory, int32_t* acc)
 {
+    printf("%d-Input is : %d\n", yolo, *input);
+    printf("%d-newMemory is : %d\n", yolo, *newMemory);
+    printf("%d-memory0 is : %d\n", yolo, stage->memory[0]);
+    printf("%d-memory1 is : %d\n", yolo, stage->memory[1]);
+    printf("%d-coeff0 is : %d\n", yolo, stage->denCoeff[0]);
+    printf("%d-coeff1 is : %d\n", yolo, stage->denCoeff[1]);
+    printf("%d-coeff2 is : %d\n", yolo, stage->denCoeff[2]);
     *newMemory = stage->denCoeff[0] * *input - stage->denCoeff[1] * stage->memory[0] - stage->denCoeff[2] * stage->memory[1];
+    printf("%d-newMemory is : %d\n", yolo, *newMemory);
     *newMemory = *newMemory >> SHIFT;
+    printf("%d-newMemory is : %d\n", yolo, *newMemory);
     *acc = stage->numCoeff[0] * *newMemory + stage->numCoeff[1] * stage->memory[0] + stage->numCoeff[2] * stage->memory[1];
+    printf("%d-acc is : %d\n", yolo, *acc);
     // Apply output in input of next stage
     *acc = *acc >> SHIFT;
+    printf("%d-acc is : %d\n", yolo, *acc);
     *input = stage->gain * *acc;
+    printf("%d-Input is : %d\n", yolo, *input);
     *input = *input >> SHIFT;
+    printf("%d-Input is : %d\n", yolo, *input);
     // Shift the memory
     stage->memory[1] = stage->memory[0];
     stage->memory[0] = *newMemory;
+    yolo++;
+    if (yolo > 57)
+    {
+        exit(0);
+    }
 }
 
 int32_t passband(int32_t input, filterStageData_s stages[FILTER_STAGE_COUNT])
@@ -66,9 +86,9 @@ int toFreq(int bit)
 {
     if (bit)
     {
-        return 1114.5;
+        return 1100;
     }
-    return 900;
+    return 913.5;
 }
 
 int main()
@@ -76,8 +96,8 @@ int main()
     int i, message, sample, bitCount=0, osrCount=0; // Iterator variable
 
     //int frame[13] = {0,1,0,0,1,0,1,0,0,0,0,1,0};  // 0x250
-    //int frame[13] = {0,0,0,0,0,0,0,0,0,0,0,0,0};  // 0x00
-    int frame[13] = {0,1,1,1,1,1,1,1,1,1,1,0,0};  // 0x3FF
+    int frame[13] = {0,0,0,0,0,0,0,0,0,0,0,0,0};  // 0x00
+    //int frame[13] = {0,1,1,1,1,1,1,1,1,1,1,0,0};  // 0x3FF
 
     maxCircBuffer_s maxStructs[FILTER_COUNT];
     for (i=0; i<FILTER_COUNT; i++)
@@ -136,7 +156,7 @@ int main()
         {
             bitCount = 12;
         }
-        input = floor(((1 << ADC_RESOLUTION)-1) * (sin(2*M_PI*toFreq(frame[bitCount])*sample/SAMPLE_FREQ)+1)/2);
+        input = (int32_t)(((1 << ADC_RESOLUTION)-1) * (sin(2*M_PI*toFreq(frame[bitCount])*sample/SAMPLE_FREQ)+1)/2);
 
         for (i=0; i<FILTER_COUNT;i++)
         {
