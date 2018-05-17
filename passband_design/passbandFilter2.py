@@ -29,28 +29,22 @@ def passband(inp, data):
         newMemory, acc = 0, 0
         myInput = inp
         for stage in filt["stages"]:
-            newMemory = stage["denCoeff"][0] * myInput
+            newMemory = stage["denCoeff"][0] * myInput - stage["denCoeff"][1] * stage["memory"][0] - stage["denCoeff"][2] * stage["memory"][1]
             overflow_test(newMemory, limit, "newMemory 1")
-            for i in range(len(stage["memory"])):
-                newMemory -= stage["denCoeff"][i+1] * stage["memory"][i]
             if data["integer_filter"]["is_active"]:
                 newMemory = newMemory//multiplier
-                overflow_test(newMemory, limit, "newMemory 2")
-            acc = stage["numCoeff"][0] * newMemory
+            overflow_test(newMemory, limit, "newMemory 2")
+            acc = stage["numCoeff"][0] * newMemory + stage["numCoeff"][1] * stage["memory"][0] + stage["numCoeff"][2] * stage["memory"][1]
             overflow_test(acc, limit, "acc 1")
-            for i in range(len(stage["memory"])):
-                acc += stage["numCoeff"][i+1] * stage["memory"][i]
-                overflow_test(acc, limit, "acc 2")
             if data["integer_filter"]["is_active"]:
                 acc = acc//multiplier
-                overflow_test(acc, limit, "acc 3")
+            overflow_test(acc, limit, "acc 2")
             myInput = stage["gain"] * acc
             overflow_test(myInput, limit, "myInput 1")
             if data["integer_filter"]["is_active"]:
                 myInput = myInput//multiplier
-                overflow_test(myInput, limit, "myInput 2")
-            for i in range(len(stage["memory"])-1, 0, -1):
-                stage["memory"][i] = stage["memory"][i-1]
+            overflow_test(myInput, limit, "myInput 2")
+            stage["memory"][1] = stage["memory"][0]
             stage["memory"][0] = newMemory
         output.append(myInput)
     return output
@@ -71,7 +65,6 @@ def plot(data, ref, signals):
     pyplot.xlabel('t (s)')
     pyplot.ylabel('CH (V)')
     pyplot.title("IIR digital biquad filter Direct form II")
-    #pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
     pyplot.show()
 
 def main():
