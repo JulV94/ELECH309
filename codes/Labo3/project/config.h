@@ -10,6 +10,6 @@
 #define SHIFT 13
 #define M (int32_t)(1 << SHIFT)
 
-#define DEBUG
+//#define DEBUG
 
 #endif	/* CONFIG_H */
