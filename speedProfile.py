@@ -41,4 +41,6 @@ while (pos < d and i < 3):
     pos = genPosReference(0.5, d, 0.4, i)
 
 plt.plot(x, y)
+plt.xlabel('t (s)')
+plt.ylabel('Distance (m)')
 plt.show()

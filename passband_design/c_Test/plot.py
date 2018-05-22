@@ -15,16 +15,20 @@ def plot(data, ref, signals):
     for item in ref:
         offseted_ref.append(item-(1<<data["adc_resolution"])/2)
 
-    pyplot.plot(time, offseted_ref, label="Input sine "+str(data["input_freq"])+" Hz")
-    for i in range(len(signals)):
-        pyplot.plot(time, signals[i], label="filter "+str(i+1))
+    #pyplot.plot(time, offseted_ref, label="Input sine "+str(data["input_freq"])+" Hz")
+    pyplot.plot(time, offseted_ref, label="Signal d'entrée")
+    #for i in range(len(signals)):
+    #    pyplot.plot(time, signals[i], label="filter "+str(i+1))
+    pyplot.plot(time, signals[0], label="Filtre 900 Hz")
+    pyplot.plot(time, signals[1], label="Filtre 1100 Hz")
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
-    pyplot.ylabel('CH (V)')
-    pyplot.title("IIR digital biquad filter Direct form II")
-    #pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
-    pyplot.show()
+    pyplot.ylabel('Amplitude')
+    pyplot.title("Trame en sortie des filtres")
+    pyplot.ylim(-600, 870)
+    #pyplot.show()
+    pyplot.savefig("test.png")
 
 def main():
     data = {"sampleNb":20000, "sample_freq":15000, "input_freq":900, "adc_resolution":10}

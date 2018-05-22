@@ -1,11 +1,11 @@
 {
-  "sampleNb":20000,
+  "sampleNb":2500,
   "sample_freq":15000,
   "adc_resolution":10,
-  "input_freq":913.5,
+  "input_freq":1138.5,
   "integer_filter":{
     "is_active":true,
-    "bit_shift":14
+    "bit_shift":13
   },
   "filters":[
     {

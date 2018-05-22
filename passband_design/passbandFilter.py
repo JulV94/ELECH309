@@ -69,7 +69,7 @@ def plot(data, ref, signals):
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
-    pyplot.ylabel('CH (V)')
+    pyplot.ylabel('Amplitude')
     pyplot.title("IIR digital biquad filter Direct form II")
     #pyplot.ylim(-2*data["input_amplitude"], 2*data["input_amplitude"])
     pyplot.show()

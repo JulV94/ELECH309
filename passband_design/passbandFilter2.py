@@ -58,14 +58,18 @@ def plot(data, ref, signals):
         scaled_ref.append(item - (1 << data["adc_resolution"])/2)
 
     pyplot.plot(time, scaled_ref, label="Input sine "+str(data["input_freq"])+" Hz")
-    for i in range(len(signals)):
-        pyplot.plot(time, signals[i], label=data["filters"][i]["name"])
+    #for i in range(len(signals)):
+    pyplot.plot(time, signals[1], label=data["filters"][1]["name"], color="forestgreen")
+    pyplot.plot(time, signals[0], label=data["filters"][0]["name"], color="darkorange")
+
     pyplot.grid()
     pyplot.legend(loc='upper left')
     pyplot.xlabel('t (s)')
-    pyplot.ylabel('CH (V)')
+    pyplot.ylabel('Amplitude')
     pyplot.title("IIR digital biquad filter Direct form II")
-    pyplot.show()
+    pyplot.ylim(-600, 870)
+    #pyplot.show()
+    pyplot.savefig("graphs/test.png")
 
 def main():
     with open('filters.json') as f:
